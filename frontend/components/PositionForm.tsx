@@ -12,9 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea"; // Import Textarea
+import { Textarea } from "@/components/ui/textarea";
 
-// Define the component's props
 interface PositionFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -26,15 +25,13 @@ export default function PositionForm({
   onOpenChange,
   onSubmit,
 }: PositionFormProps) {
-  // Local state for the form fields
   const [role, setRole] = useState("");
   const [skills, setSkills] = useState("");
 
   const handleSubmit = () => {
-    // Basic validation
     if (role.trim() && skills.trim()) {
       onSubmit(role, skills);
-      onOpenChange(false); // Close the dialog
+      onOpenChange(false);
     } else {
       alert("Please fill out both fields.");
     }

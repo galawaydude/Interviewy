@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/card";
 import InterviewSession from "@/components/InterviewSession";
 import PositionForm from "@/components/PositionForm";
-import ResumeUploadDialog from "@/components/ResumeUploadDialog"; // <-- Import the new dialog
+import ResumeUploadDialog from "@/components/ResumeUploadDialog";
 
+// This wrapper is needed to use useSearchParams
 export default function Home() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
@@ -28,10 +29,10 @@ function HomePageContent() {
 
   // State for the dialogs
   const [showPositionDialog, setShowPositionDialog] = useState(false);
-  const [showResumeDialog, setShowResumeDialog] = useState(false); // <-- New state
+  const [showResumeDialog, setShowResumeDialog] = useState(false);
   
   // State to hold the resume text
-  const [resumeText, setResumeText] = useState<string | undefined>(undefined); // <-- New state
+  const [resumeText, setResumeText] = useState<string | undefined>(undefined);
 
   // Read URL params
   const interviewMode = searchParams.get("mode");
@@ -45,16 +46,14 @@ function HomePageContent() {
     router.push(`/?mode=position&role=${encodedRole}&skills=${encodedSkills}`);
   };
 
-  // <-- New function: This runs when the ResumeUploadDialog is submitted
+  // This runs when the ResumeUploadDialog is submitted
   const handleResumeSubmit = (extractedText: string) => {
     setResumeText(extractedText); // Save the text
     router.push(`/?mode=resume`); // Navigate to the interview
   };
   
-  // This logic checks the URL *after* the page navigates
+  // This logic handles the user clicking the browser's "Back" button
   useEffect(() => {
-    // If we are on 'resume' mode but have no text, redirect to home
-    // This handles the user clicking "Back"
     if (searchParams.get("mode") === "resume" && !resumeText) {
       router.push("/");
     }
@@ -69,7 +68,7 @@ function HomePageContent() {
           mode={interviewMode as "resume" | "position"}
           role={role || undefined}
           skills={skills || undefined}
-          resumeText={resumeText} // <-- Pass the resume text as a prop
+          resumeText={resumeText} // Pass the resume text
         />
       </main>
     );
@@ -99,7 +98,7 @@ function HomePageContent() {
               <CardContent>
                 <Button
                   className="w-full"
-                  onClick={() => setShowResumeDialog(true)} // <-- This now opens the resume dialog
+                  onClick={() => setShowResumeDialog(true)} // Opens resume dialog
                 >
                   Start Resume Interview
                 </Button>
@@ -117,7 +116,7 @@ function HomePageContent() {
               <CardContent>
                 <Button
                   className="w-full"
-                  onClick={() => setShowPositionDialog(true)} // <-- This still opens the position dialog
+                  onClick={() => setShowPositionDialog(true)} // Opens position dialog
                 >
                   Start Position Interview
                 </Button>
@@ -127,14 +126,13 @@ function HomePageContent() {
         </div>
       </main>
 
-      {/* This Dialog component is hidden until showPositionDialog is true */}
+      {/* The dialogs are hidden until their state is true */}
       <PositionForm
         open={showPositionDialog}
         onOpenChange={setShowPositionDialog}
         onSubmit={handlePositionSubmit}
       />
       
-      {/* <-- New Dialog: This is hidden until showResumeDialog is true */}
       <ResumeUploadDialog
         open={showResumeDialog}
         onOpenChange={setShowResumeDialog}

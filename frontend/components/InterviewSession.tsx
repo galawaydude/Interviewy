@@ -11,24 +11,24 @@ type Message = {
   text: string;
 };
 
-// --- THIS IS THE FIX ---
-// Update the props to accept the new optional resumeText field
+// This interface accepts all possible props
 interface InterviewSessionProps {
   mode: "resume" | "position";
   role?: string;
   skills?: string;
-  resumeText?: string; // <-- Add this line
+  resumeText?: string; 
 }
 
 export default function InterviewSession({
   mode,
   role,
   skills,
-  resumeText, // <-- Get the prop
+  resumeText,
 }: InterviewSessionProps) {
   const router = useRouter();
   const [currentMessage, setCurrentMessage] = useState("");
 
+  // This is the hardcoded initial greeting, as you preferred
   const initialGreeting =
     mode === "position" && role
       ? `Hello, I am Alex. I see you're applying for the ${role} role. Before we begin, tell me your name.`
@@ -41,6 +41,7 @@ export default function InterviewSession({
   const [isLoading, setIsLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scrolls the chat window
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -58,6 +59,7 @@ export default function InterviewSession({
     setIsLoading(true);
 
     try {
+      // Calls the backend with all the context
       const response = await fetch("http://localhost:5000/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,7 +68,7 @@ export default function InterviewSession({
           mode: mode,
           role: role,
           skills: skills,
-          resume_text: resumeText, // <-- Send the resume text to the backend
+          resume_text: resumeText, // Sends the resume text
         }),
       });
 
@@ -126,7 +128,6 @@ export default function InterviewSession({
                 </div>
               </div>
             ))}
-            {/* Show a "thinking" indicator */}
             {isLoading && (
               <div className="flex justify-start">
                 <div className="p-2 rounded-lg bg-background border">

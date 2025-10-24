@@ -13,11 +13,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// Define the component's props
 interface ResumeUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // This function will pass the extracted text back to the main page
   onSubmit: (resumeText: string) => void;
 }
 
@@ -26,7 +24,6 @@ export default function ResumeUploadDialog({
   onOpenChange,
   onSubmit,
 }: ResumeUploadDialogProps) {
-  // Local state for the selected file
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -34,7 +31,7 @@ export default function ResumeUploadDialog({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFile(e.target.files[0]);
-      setError(""); // Clear previous errors
+      setError(""); 
     }
   };
 
@@ -43,7 +40,6 @@ export default function ResumeUploadDialog({
       setError("Please select a file.");
       return;
     }
-
     if (file.type !== "application/pdf") {
       setError("Please select a PDF file.");
       return;
@@ -51,8 +47,6 @@ export default function ResumeUploadDialog({
 
     setIsLoading(true);
     setError("");
-
-    // Use FormData to send the file to the backend
     const formData = new FormData();
     formData.append("file", file);
 
@@ -67,17 +61,15 @@ export default function ResumeUploadDialog({
       }
 
       const data = await response.json();
-      
-      // Pass the extracted text back to the parent page
-      onSubmit(data.resume_text);
-      onOpenChange(false); // Close the dialog
+      onSubmit(data.resume_text); // Pass text back to main page
+      onOpenChange(false);
 
     } catch (err) {
       setError("An error occurred during upload. Please try again.");
       console.error(err);
     } finally {
       setIsLoading(false);
-      setFile(null); // Reset file input
+      setFile(null); 
     }
   };
 
@@ -98,7 +90,7 @@ export default function ResumeUploadDialog({
             <Input
               id="resume"
               type="file"
-              accept=".pdf" // Only allow PDF files
+              accept=".pdf" 
               className="col-span-3"
               onChange={handleFileChange}
             />
