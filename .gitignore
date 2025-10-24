@@ -1,0 +1,54 @@
+# --- Python / Flask (backend) ---
+
+# Virtual Environment
+/backend/venv/
+/backend/.venv/
+/backend/env/
+/backend/virtual/
+
+# Compiled files
+/backend/__pycache__/
+/backend/*.py[cod]
+
+# Instance folder
+/backend/instance/
+
+# Environment files
+/backend/.env
+/backend/.env.*
+
+
+# --- Node.js / Next.js (frontend) ---
+
+# Dependencies
+/frontend/node_modules/
+
+# Build directory
+/frontend/.next/
+
+# Static export directory
+/frontend/out/
+
+# Local environment variables
+/frontend/.env.local
+/frontend/.env*.local
+
+# Logs
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
+
+
+# --- OS / Editor ---
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# JetBrains (PyCharm, WebStorm, etc.)
+.idea/
+
+# Google Cloud Credentials
+*.json
