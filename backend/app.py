@@ -37,7 +37,6 @@ except google.auth.exceptions.DefaultCredentialsError:
 except Exception as e:
     print(f"❌ ERROR: Could not initialize or verify Google Cloud TTS Client.")
     print(f"   Details: {type(e).__name__} - {e}")
-    # Add hints based on common errors
 
 # Initialize STT
 try:
@@ -144,17 +143,20 @@ def speech_to_text_api():
 
         audio = speech.RecognitionAudio(content=audio_content)
 
-        # --- **** THIS IS THE CORRECTED CONFIG **** ---
-        # Explicitly tell the API to expect 2 audio channels for stereo WEBM_OPUS
+        # --- **** UPDATED STT CONFIG **** ---
         config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
-            audio_channel_count=2,  # <-- ADDED THIS LINE TO MATCH THE HEADER
+            audio_channel_count=2,
             language_code="en-US", # Or "en-IN"
             enable_automatic_punctuation=True,
-            # sample_rate_hertz is not needed for WEBM_OPUS as it's in the header
+            # --- Option 1: Try a different model ---
+            model="latest_long", # Good for general, longer speech, potentially higher accuracy
+            # --- Option 2: Use enhanced model (if available for the chosen model) ---
+            use_enhanced=True,   # Can improve accuracy, costs more. Check compatibility with model.
+            # sample_rate_hertz is not needed for WEBM_OPUS
         )
-        print(f"   Using STT Config: encoding=WEBM_OPUS, channels=2, lang=en-US, auto_punct=True")
-        # --- **** END OF CORRECTION **** ---
+        print(f"   Using STT Config: encoding=WEBM_OPUS, channels=2, lang={config.language_code}, model={config.model}, enhanced={config.use_enhanced}")
+        # --- **** END OF UPDATED CONFIG **** ---
 
 
         print("   Calling Google STT recognize API...")
@@ -176,14 +178,12 @@ def speech_to_text_api():
     except google.api_core.exceptions.InvalidArgument as e:
          print(f"   ❌ Error during STT processing (InvalidArgument): {e}")
          error_str = str(e).lower()
-         if "audio_channel_count" in error_str:
-              print("      Hint: Mismatch between expected/actual audio channels. Config expects 2, ensure browser sends stereo or adjust config.")
-         elif "sample_rate" in error_str:
-              print("      Hint: Sample rate issue. Ensure audio header is valid for WEBM_OPUS.")
-         elif "encoding" in error_str:
-              print(f"      Hint: Encoding mismatch. Browser sent '{audio_file.content_type}', config expects 'WEBM_OPUS'.")
-         else:
-              print(f"      Hint: Check audio data format and RecognitionConfig parameters.")
+         # Add hints for common InvalidArgument errors
+         if "audio_channel_count" in error_str: print("      Hint: Audio channel mismatch.")
+         elif "sample_rate" in error_str: print("      Hint: Sample rate issue.")
+         elif "encoding" in error_str: print("      Hint: Encoding mismatch (Expected WEBM_OPUS).")
+         elif "model" in error_str and "not supported" in error_str: print(f"      Hint: The model '{config.model}' might not support the specified encoding/language/enhancements.")
+         else: print(f"      Hint: Check audio data format and RecognitionConfig parameters.")
          return jsonify({"error": f"Failed to transcribe: Invalid config or audio data."}), 400
     except Exception as e:
         print(f"   ❌ Error during STT processing: {type(e).__name__} - {e}")
@@ -239,6 +239,7 @@ if __name__ == '__main__':
     print("   Backend: http://localhost:5000")
     print("   Press CTRL+C to quit.")
     try:
+        # use_reloader=False prevents double init logs but requires manual restart for some changes
         app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
     except Exception as e:
          print(f"❌ Failed to start Flask server: {e}")
