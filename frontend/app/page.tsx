@@ -1,21 +1,15 @@
-// app/page.tsx
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import InterviewSession from "@/components/InterviewSession";
 import PositionForm from "@/components/PositionForm";
 import ResumeUploadDialog from "@/components/ResumeUploadDialog";
+import { FileText, Briefcase, Mic } from "lucide-react";
+import { TypeAnimation } from "react-type-animation";
 
-// Suspense wrapper is necessary for useSearchParams in App Router
+// Suspense wrapper
 export default function Home() {
   return (
     <Suspense fallback={<LoadingSpinner />}>
@@ -24,11 +18,14 @@ export default function Home() {
   );
 }
 
+// Loading Spinner
 function LoadingSpinner() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-24 bg-background">
+    <main className="flex min-h-screen items-center justify-center p-24 bg-white">
       <div className="text-center">
-        <p className="text-lg text-muted-foreground">Loading Interviewer...</p>
+        <p className="text-lg text-gray-500 animate-pulse">
+          Loading Interviewer...
+        </p>
       </div>
     </main>
   );
@@ -38,133 +35,131 @@ function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // State for controlling dialog visibility
   const [showPositionDialog, setShowPositionDialog] = useState(false);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
-
-  // State to hold data passed to the InterviewSession
   const [resumeText, setResumeText] = useState<string | undefined>(undefined);
-  const [userNameForResume, setUserNameForResume] = useState<string | undefined>(
-    undefined
-  );
-
-  // State for permission loading
+  const [userNameForResume, setUserNameForResume] = useState<
+    string | undefined
+  >(undefined);
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
 
-  // Read URL parameters on every render
+  // Animation staging
+  const [showTitle, setShowTitle] = useState(false);
+  const [showSubtitle, setShowSubtitle] = useState(false);
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [showCards, setShowCards] = useState(false);
+  const [showArrows, setShowArrows] = useState(false);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setShowTitle(true), 100);
+    const t2 = setTimeout(() => setShowSubtitle(true), 1200);
+    const t3 = setTimeout(() => setShowHowItWorks(true), 2200);
+    const t4 = setTimeout(() => setShowCards(true), 3200);
+    const t5 = setTimeout(() => setShowArrows(true), 5000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+      clearTimeout(t5);
+    };
+  }, []);
+
+  // URL Params
   const interviewMode = searchParams.get("mode");
   const role = searchParams.get("role");
   const skills = searchParams.get("skills");
   const nameParam = searchParams.get("name");
 
-  // Mic Permission Flow
-  const handlePositionSubmit = useCallback(async (
-    submittedName: string,
-    submittedRole: string,
-    submittedSkills: string
-  ) => {
-    setIsRequestingPermission(true);
-    setPermissionError(null);
-
-    try {
-      console.log("Requesting microphone permission...");
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log("Microphone permission granted.");
-
-      setResumeText(undefined);
-      setUserNameForResume(undefined);
-
-      const encodedName = encodeURIComponent(submittedName);
-      const encodedRole = encodeURIComponent(submittedRole);
-      const encodedSkills = encodeURIComponent(submittedSkills);
-
-      // Close the dialog *before* navigating
-      setShowPositionDialog(false);
-
-      console.log(`Navigating to position interview for ${submittedName}`);
-      router.push(`/?mode=position&name=${encodedName}&role=${encodedRole}&skills=${encodedSkills}`);
-
-    } catch (err) {
-      console.error("Microphone permission error:", err);
-      if (err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
-        setPermissionError("Microphone access was denied. You must allow it in your browser settings to continue.");
-      } else {
-        setPermissionError("Could not access microphone. Please check your hardware and permissions.");
+  const handlePositionSubmit = useCallback(
+    async (submittedName: string, submittedRole: string, submittedSkills: string) => {
+      setIsRequestingPermission(true);
+      setPermissionError(null);
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        setResumeText(undefined);
+        setUserNameForResume(undefined);
+        const encodedName = encodeURIComponent(submittedName);
+        const encodedRole = encodeURIComponent(submittedRole);
+        const encodedSkills = encodeURIComponent(submittedSkills);
+        setShowPositionDialog(false);
+        router.push(
+          `/?mode=position&name=${encodedName}&role=${encodedRole}&skills=${encodedSkills}`
+        );
+      } catch (err: any) {
+        if (
+          err instanceof DOMException &&
+          (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")
+        ) {
+          setPermissionError(
+            "Microphone access was denied. You must allow it in your browser settings to continue."
+          );
+        } else {
+          setPermissionError(
+            "Could not access microphone. Please check your hardware and permissions."
+          );
+        }
+        setIsRequestingPermission(false);
       }
-      setIsRequestingPermission(false);
-    }
-  }, [router]); // Keep router dependency
+    },
+    [router]
+  );
 
-
-  // Handler for ResumeUploadDialog submission (also fixed)
-  const handleResumeSubmit = useCallback(async (extractedText: string) => {
-    const name = prompt("Please enter your name:");
-    if (!name || name.trim() === "") {
-      alert("Name is required to start the interview.");
-      setShowResumeDialog(false);
-      return;
-    }
-
-    setIsRequestingPermission(true);
-    setPermissionError(null);
-
-    try {
-      console.log("Requesting microphone permission...");
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log("Microphone permission granted.");
-
-      setUserNameForResume(name);
-      setResumeText(extractedText);
-      const encodedName = encodeURIComponent(name);
-
-      // Also close resume dialog here
-      setShowResumeDialog(false);
-
-      console.log(`Navigating to resume interview for ${name}`);
-      router.push(`/?mode=resume&name=${encodedName}`);
-
-    } catch (err) {
-      console.error("Microphone permission error:", err);
-      if (err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
-        alert("Microphone access was denied. Please allow it in your browser settings to continue.");
-      } else {
-        alert("Could not access microphone. Please check your hardware and permissions.");
+  const handleResumeSubmit = useCallback(
+    async (extractedText: string) => {
+      const name = prompt("Please enter your name:");
+      if (!name?.trim()) {
+        alert("Name required.");
+        setShowResumeDialog(false);
+        return;
       }
-      setIsRequestingPermission(false);
-    }
-  }, [router]);
+      setIsRequestingPermission(true);
+      setPermissionError(null);
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        setUserNameForResume(name);
+        setResumeText(extractedText);
+        const encodedName = encodeURIComponent(name);
+        setShowResumeDialog(false);
+        router.push(`/?mode=resume&name=${encodedName}`);
+      } catch (err: any) {
+        if (
+          err instanceof DOMException &&
+          (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")
+        ) {
+          alert(
+            "Microphone access was denied. Please allow it in your browser settings to continue."
+          );
+        } else {
+          alert(
+            "Could not access microphone. Please check your hardware and permissions."
+          );
+        }
+        setIsRequestingPermission(false);
+      }
+    },
+    [router]
+  );
 
-
-  // --- ✅ FIX IS HERE ---
-  // Effect to clear ALL relevant state when navigating back to home
   useEffect(() => {
-    // If there's no 'mode' param, we are on the home screen
     if (!searchParams.get("mode")) {
-      console.log("On home screen, clearing session state.");
       setResumeText(undefined);
       setUserNameForResume(undefined);
-      // Reset permission state as well
       setIsRequestingPermission(false);
       setPermissionError(null);
     }
-  }, [searchParams]); // Rerun when URL parameters change
-  // --- END FIX ---
+  }, [searchParams]);
 
-
-  // --- Conditional Rendering ---
-
-  // If mode and name are present, render Interview Session
   if (interviewMode && nameParam) {
-    console.log("Rendering InterviewSession...");
     const decodedName = decodeURIComponent(nameParam);
     const decodedRole = role ? decodeURIComponent(role) : undefined;
     const decodedSkills = skills ? decodeURIComponent(skills) : undefined;
-    const currentResumeText = (interviewMode === 'resume') ? resumeText : undefined;
+    const currentResumeText = interviewMode === "resume" ? resumeText : undefined;
     const currentUserName = decodedName;
 
     return (
-      <main className="flex min-h-screen items-center justify-center p-4 sm:p-24 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-900 dark:to-gray-800">
+      <main className="flex min-h-screen items-center justify-center bg-gray-900">
         <InterviewSession
           mode={interviewMode as "resume" | "position"}
           userName={currentUserName}
@@ -176,84 +171,219 @@ function HomePageContent() {
     );
   }
 
-  // --- Otherwise, render the Welcome Screen ---
   return (
     <>
-      <main className="flex min-h-screen items-center justify-center p-4 sm:p-24 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-900 dark:to-gray-800">
-        <div className="flex flex-col items-center text-center max-w-lg w-full px-4">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-4 text-gray-800 dark:text-gray-100">
-            Welcome to the AI Interviewer 🤖
-          </h1>
-          <p className="text-md sm:text-lg text-muted-foreground mb-12">
-            Select an interview mode to practice your skills.
+      <main className="grid-background flex min-h-screen items-center justify-center p-6 sm:p-12 text-gray-900">
+        <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
+
+          {/* Title */}
+          <header
+            className={`text-center mb-16 transition-all duration-700 ${
+              showTitle ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            }`}
+          >
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-5 font-cursive text-gray-900">
+              <TypeAnimation
+                sequence={["AI Interview Practice", 2500]}
+                wrapper="span"
+                speed={25}
+                cursor={true}
+                repeat={0}
+                style={{ display: "inline-block" }}
+              />
+            </h1>
+          </header>
+
+          {/* Subtitle */}
+          <p
+            className={`text-lg sm:text-xl text-gray-600 max-w-xl mx-auto text-center transition-all duration-700 ${
+              showSubtitle ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            }`}
+          >
+            Sharpen your skills and boost your confidence with realistic
+            AI-powered interviews.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 w-full">
-            {/* Resume Card */}
-            <Card className="w-full shadow-lg hover:shadow-xl transition-shadow duration-300 dark:bg-gray-800">
-              <CardHeader>
-                <CardTitle className="dark:text-gray-100">Resume Interview</CardTitle>
-                <CardDescription>
-                  Upload your resume (PDF) and get interviewed.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  className="w-full"
-                  onClick={() => setShowResumeDialog(true)}
-                  disabled={isRequestingPermission}
-                  aria-label="Start resume interview"
-                >
-                  {isRequestingPermission ? "Checking Mic..." : "Start Resume Interview"}
-                </Button>
-              </CardContent>
-            </Card>
+          {/* How It Works */}
+          <section
+            className={`text-center mb-16 mt-12 transition-all duration-700 ${
+              showHowItWorks ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            }`}
+          >
+            <h2 className="text-3xl font-semibold mb-6 text-gray-800">
+              How It Works
+            </h2>
+            <p className="text-gray-600 max-w-lg mx-auto leading-relaxed">
+              Choose your interview type below, grant microphone access when
+              prompted, and you'll jump right into a practice session. Our AI
+              interviewer, Alex, will ask relevant questions. Speak clearly,
+              think through your answers, and get valuable practice!
+            </p>
+          </section>
 
-            {/* Position Card */}
-            <Card className="w-full shadow-lg hover:shadow-xl transition-shadow duration-300 dark:bg-gray-800">
-              <CardHeader>
-                <CardTitle className="dark:text-gray-100">Position Interview</CardTitle>
-                <CardDescription>
-                  Specify a role & skills and get interviewed.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  className="w-full"
-                  onClick={() => setShowPositionDialog(true)}
-                  disabled={isRequestingPermission}
-                  aria-label="Start position interview"
-                >
-                  {isRequestingPermission ? "Checking Mic..." : "Start Position Interview"}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Cards Section */}
+          <section
+            className={`w-full max-w-2xl transition-all duration-700 ${
+              showCards ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+            }`}
+          >
+            <h3 className="text-2xl font-semibold mb-10 text-center text-gray-700">
+              Select Your Practice Mode:
+            </h3>
 
-          {/* Show permission error from the form dialog */}
+            <div className="flex flex-col items-stretch gap-12">
+
+              {/* Resume Card */}
+              <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 p-6 bg-white/80 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200">
+                <div className="flex-shrink-0 p-4 bg-purple-100 rounded-full shadow-inner">
+                  <FileText className="h-10 w-10 sm:h-12 sm:w-12 text-purple-600" />
+                </div>
+                <div className="flex-grow text-center sm:text-left">
+                  <h2 className="text-xl sm:text-2xl font-semibold mb-2 text-gray-900">
+                    Resume Interview
+                  </h2>
+                  <p className="text-gray-600 mb-5 text-sm sm:text-base">
+                    Get questions tailored to the experience listed on your PDF
+                    resume.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-purple-600 text-purple-600 hover:bg-purple-100 hover:text-purple-700 focus:ring-purple-500 focus:ring-2 focus:ring-offset-2 gap-1.5 transition-all duration-200"
+                    onClick={() => setShowResumeDialog(true)}
+                    disabled={isRequestingPermission}
+                  >
+                    {isRequestingPermission ? (
+                      "Checking..."
+                    ) : (
+                      <>
+                        <Mic className="h-4 w-4" /> Start Resume Interview
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Arrow */}
+                {showArrows && (
+                  <svg
+                    width="140"
+                    height="80"
+                    viewBox="0 0 140 80"
+                    className="absolute right-[-140px] top-1/2 -translate-y-1/2 hidden sm:block"
+                  >
+                    <path
+                      d="M130,40 C90,10 50,10 10,40"
+                      stroke="#a78bfa"
+                      strokeWidth="2"
+                      fill="none"
+                      strokeDasharray="6 6"
+                      className="animate-arrowDraw"
+                      markerEnd="url(#arrowhead-purple)"
+                    />
+                    <defs>
+                      <marker
+                        id="arrowhead-purple"
+                        markerWidth="8"
+                        markerHeight="6"
+                        refX="8"
+                        refY="3"
+                        orient="auto"
+                      >
+                        <polygon points="0 0, 8 3, 0 6" fill="#a78bfa" />
+                      </marker>
+                    </defs>
+                  </svg>
+                )}
+              </div>
+
+              {/* Position Card */}
+              <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 p-6 bg-white/80 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200">
+                <div className="flex-shrink-0 p-4 bg-blue-100 rounded-full shadow-inner">
+                  <Briefcase className="h-10 w-10 sm:h-12 sm:w-12 text-blue-600" />
+                </div>
+                <div className="flex-grow text-center sm:text-left">
+                  <h2 className="text-xl sm:text-2xl font-semibold mb-2 text-gray-900">
+                    Position Interview
+                  </h2>
+                  <p className="text-gray-600 mb-5 text-sm sm:text-base">
+                    Practice answering questions for a specific job role and
+                    required skills.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-blue-600 text-blue-600 hover:bg-blue-100 hover:text-blue-700 focus:ring-blue-500 focus:ring-2 focus:ring-offset-2 gap-1.5 transition-all duration-200"
+                    onClick={() => setShowPositionDialog(true)}
+                    disabled={isRequestingPermission}
+                  >
+                    {isRequestingPermission ? (
+                      "Checking..."
+                    ) : (
+                      <>
+                        <Mic className="h-4 w-4" /> Start Position Interview
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Arrow */}
+                {showArrows && (
+                  <svg
+                    width="140"
+                    height="80"
+                    viewBox="0 0 140 80"
+                    className="absolute right-[-140px] top-1/2 -translate-y-1/2 hidden sm:block"
+                  >
+                    <path
+                      d="M130,40 C90,70 50,70 10,40"
+                      stroke="#93c5fd"
+                      strokeWidth="2"
+                      fill="none"
+                      strokeDasharray="6 6"
+                      className="animate-arrowDraw"
+                      markerEnd="url(#arrowhead-blue)"
+                    />
+                    <defs>
+                      <marker
+                        id="arrowhead-blue"
+                        markerWidth="8"
+                        markerHeight="6"
+                        refX="8"
+                        refY="3"
+                        orient="auto"
+                      >
+                        <polygon points="0 0, 8 3, 0 6" fill="#93c5fd" />
+                      </marker>
+                    </defs>
+                  </svg>
+                )}
+              </div>
+            </div>
+          </section>
+
           {permissionError && (
-             <p className="mt-4 text-red-500 dark:text-red-400 text-sm text-center">{permissionError}</p>
+            <p className="mt-12 text-red-600 text-sm text-center animate-shake">
+              {permissionError}
+            </p>
           )}
         </div>
       </main>
 
-      {/* Dialogs rendered conditionally */}
       <PositionForm
-        key="position-dialog"
         open={showPositionDialog}
-        // Pass setShowPositionDialog correctly
-        onOpenChange={(isOpen) => !isRequestingPermission && setShowPositionDialog(isOpen)}
+        onOpenChange={(isOpen) =>
+          !isRequestingPermission && setShowPositionDialog(isOpen)
+        }
         onSubmit={handlePositionSubmit}
         isLoading={isRequestingPermission}
         error={permissionError}
       />
       <ResumeUploadDialog
-        key="resume-dialog"
         open={showResumeDialog}
-        onOpenChange={(isOpen) => !isRequestingPermission && setShowResumeDialog(isOpen)} // Also prevent closing resume dialog
+        onOpenChange={(isOpen) =>
+          !isRequestingPermission && setShowResumeDialog(isOpen)
+        }
         onSubmit={handleResumeSubmit}
-        // Pass loading state if you add it to ResumeUploadDialog
-        // isLoading={isRequestingPermission}
       />
     </>
   );
