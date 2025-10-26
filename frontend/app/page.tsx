@@ -182,7 +182,7 @@ function HomePageContent() {
               showTitle ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-5 font-cursive text-gray-900">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-5 text-gray-900">
               <TypeAnimation
                 sequence={["AI Interview Practice", 2500]}
                 wrapper="span"
@@ -210,7 +210,7 @@ function HomePageContent() {
               showHowItWorks ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
-            <h2 className="text-3xl font-semibold mb-6 text-gray-800">
+            <h2 className="text-3xl font-semibold mb-6 text-gray-800 font-cursive">
               How It Works
             </h2>
             <p className="text-gray-600 max-w-lg mx-auto leading-relaxed">
