@@ -10,13 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label } from "@/components/ui/label"; 
+import { UploadCloud, FileText, X } from "lucide-react"; 
 
 interface ResumeUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (resumeText: string) => void;
+  onSubmit: (resumeText: string, extractedName: string) => void;
 }
 
 export default function ResumeUploadDialog({
@@ -61,45 +61,88 @@ export default function ResumeUploadDialog({
       }
 
       const data = await response.json();
-      onSubmit(data.resume_text); // Pass text back to main page
-      onOpenChange(false);
-
+      onSubmit(data.resume_text, data.extracted_name || ""); 
+      
     } catch (err) {
       setError("An error occurred during upload. Please try again.");
       console.error(err);
-    } finally {
-      setIsLoading(false);
-      setFile(null); 
+      setIsLoading(false); // Stop loading on error
+    } 
+  };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isLoading) return; 
+    if (!isOpen) {
+      setFile(null);
+      setError("");
     }
+    onOpenChange(isOpen);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {/* --- ✅ Removed dark: classes --- */}
+      <DialogContent 
+        className="sm:max-w-md data-[state=open]:animate-fade-in-up"
+      >
         <DialogHeader>
           <DialogTitle>Upload Resume</DialogTitle>
           <DialogDescription>
-            Please upload your resume as a PDF to begin the interview.
+            Please upload your resume as a PDF to begin.
           </DialogDescription>
         </DialogHeader>
+        
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="resume" className="text-right">
-              Resume
-            </Label>
-            <Input
-              id="resume"
-              type="file"
-              accept=".pdf" 
-              className="col-span-3"
-              onChange={handleFileChange}
-            />
-          </div>
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+          <input
+            type="file"
+            id="resume-file-input"
+            accept=".pdf"
+            onChange={handleFileChange}
+            disabled={isLoading}
+            className="hidden" // The actual input is hidden
+          />
+          
+          {/* --- ✅ Use theme-aware classes --- */}
+          <Label
+            htmlFor="resume-file-input"
+            className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer
+              ${isLoading ? "opacity-50 cursor-not-allowed" : "hover:bg-accent"}
+              ${error ? "border-destructive" : "border-border"}
+            `}
+          >
+            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+              <UploadCloud className="w-8 h-8 mb-4 text-muted-foreground" />
+              <p className="mb-2 text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">Click to upload</span> or drag and drop
+              </p>
+              <p className="text-xs text-muted-foreground">PDF only (MAX. 5MB)</p>
+            </div>
+          </Label>
+
+          {/* --- ✅ Use theme-aware classes --- */}
+          {file && !isLoading && (
+            <div className="flex items-center justify-between p-2.5 bg-muted rounded-md">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                <span className="text-sm text-muted-foreground">{file.name}</span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6"
+                onClick={() => setFile(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          
+          {error && <p className="text-destructive text-sm text-center">{error}</p>}
         </div>
+        
         <DialogFooter>
-          <Button type="submit" onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? "Uploading..." : "Start Interview"}
+          <Button type="submit" onClick={handleSubmit} disabled={isLoading || !file}>
+            {isLoading ? "Processing Resume..." : "Start Interview"}
           </Button>
         </DialogFooter>
       </DialogContent>

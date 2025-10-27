@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import InterviewSession from "@/components/InterviewSession";
 import PositionForm from "@/components/PositionForm";
 import ResumeUploadDialog from "@/components/ResumeUploadDialog";
+// --- 1. IMPORT THE NEW DIALOG ---
+import NameConfirmationDialog from "@/components/NameConfirmationDialog";
 import { FileText, Briefcase, Mic } from "lucide-react";
 import { TypeAnimation } from "react-type-animation";
 
@@ -37,14 +39,20 @@ function HomePageContent() {
 
   const [showPositionDialog, setShowPositionDialog] = useState(false);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
+  
+  // --- 2. STATE FOR THE NEW FLOW ---
+  const [resumeData, setResumeData] = useState<{ text: string, name: string } | null>(null);
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+
+  // --- These states are for the *final* interview ---
   const [resumeText, setResumeText] = useState<string | undefined>(undefined);
   const [userNameForResume, setUserNameForResume] = useState<
     string | undefined
   >(undefined);
-  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
-  const [permissionError, setPermissionError] = useState<string | null>(null);
+  
 
-  // Animation staging
+  // Animation staging (unchanged)
   const [showTitle, setShowTitle] = useState(false);
   const [showSubtitle, setShowSubtitle] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
@@ -58,20 +66,17 @@ function HomePageContent() {
     const t4 = setTimeout(() => setShowCards(true), 3200);
     const t5 = setTimeout(() => setShowArrows(true), 5000);
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-      clearTimeout(t5);
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5);
     };
   }, []);
 
-  // URL Params
+  // URL Params (unchanged)
   const interviewMode = searchParams.get("mode");
   const role = searchParams.get("role");
   const skills = searchParams.get("skills");
   const nameParam = searchParams.get("name");
 
+  // `handlePositionSubmit` is unchanged
   const handlePositionSubmit = useCallback(
     async (submittedName: string, submittedRole: string, submittedSkills: string) => {
       setIsRequestingPermission(true);
@@ -106,51 +111,73 @@ function HomePageContent() {
     [router]
   );
 
+  // --- 3. MODIFIED `handleResumeSubmit` ---
   const handleResumeSubmit = useCallback(
-    async (extractedText: string) => {
-      const name = prompt("Please enter your name:");
-      if (!name?.trim()) {
-        alert("Name required.");
-        setShowResumeDialog(false);
-        return;
-      }
+    (extractedText: string, extractedName: string) => {
+      setResumeData({ text: extractedText, name: extractedName });
+      setShowResumeDialog(false); // Close upload dialog
+    },
+    [] 
+  );
+
+  // --- 4. NEW HANDLER for the NameConfirmationDialog ---
+  const handleNameConfirmation = useCallback(
+    async (confirmedName: string) => {
+      if (!resumeData) return; 
+
+      const resumeText = resumeData.text;
+
       setIsRequestingPermission(true);
       setPermissionError(null);
+
       try {
         await navigator.mediaDevices.getUserMedia({ audio: true });
-        setUserNameForResume(name);
-        setResumeText(extractedText);
-        const encodedName = encodeURIComponent(name);
-        setShowResumeDialog(false);
+        
+        const finalName = confirmedName.trim() || "Candidate";
+        setUserNameForResume(finalName);
+        setResumeText(resumeText);
+        const encodedName = encodeURIComponent(finalName);
+        
+        setResumeData(null); // Close the name confirmation dialog
         router.push(`/?mode=resume&name=${encodedName}`);
       } catch (err: any) {
         if (
           err instanceof DOMException &&
           (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")
         ) {
-          alert(
-            "Microphone access was denied. Please allow it in your browser settings to continue."
+           setPermissionError(
+            "Microphone access was denied. You must allow it in your browser settings to continue."
           );
         } else {
-          alert(
+           setPermissionError(
             "Could not access microphone. Please check your hardware and permissions."
           );
         }
-        setIsRequestingPermission(false);
+        setIsRequestingPermission(false); 
       }
     },
-    [router]
+    [router, resumeData] 
   );
 
+  const handleCancelNameConfirmation = () => {
+    setResumeData(null);
+    setIsRequestingPermission(false);
+    setPermissionError(null);
+  };
+
+
+  // --- (Cleanup effect is unchanged) ---
   useEffect(() => {
     if (!searchParams.get("mode")) {
       setResumeText(undefined);
       setUserNameForResume(undefined);
       setIsRequestingPermission(false);
       setPermissionError(null);
+      setResumeData(null);
     }
   }, [searchParams]);
 
+  // --- (InterviewSession rendering is unchanged) ---
   if (interviewMode && nameParam) {
     const decodedName = decodeURIComponent(nameParam);
     const decodedRole = role ? decodeURIComponent(role) : undefined;
@@ -171,13 +198,13 @@ function HomePageContent() {
     );
   }
 
+  // --- (Landing page JSX is unchanged) ---
   return (
     <>
       <main className="grid-background flex min-h-screen items-center justify-center p-6 sm:p-12 text-gray-900">
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
-
-          {/* Title */}
-          <header
+           {/* Title */}
+           <header
             className={`text-center mb-16 transition-all duration-700 ${
               showTitle ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
@@ -369,6 +396,8 @@ function HomePageContent() {
         </div>
       </main>
 
+      {/* --- 5. ADD THE DIALOGS TO THE RENDER --- */}
+
       <PositionForm
         open={showPositionDialog}
         onOpenChange={(isOpen) =>
@@ -378,12 +407,22 @@ function HomePageContent() {
         isLoading={isRequestingPermission}
         error={permissionError}
       />
+      
       <ResumeUploadDialog
         open={showResumeDialog}
-        onOpenChange={(isOpen) =>
-          !isRequestingPermission && setShowResumeDialog(isOpen)
-        }
+        onOpenChange={(isOpen) => {
+            if (!isRequestingPermission) setShowResumeDialog(isOpen);
+        }}
         onSubmit={handleResumeSubmit}
+      />
+
+      <NameConfirmationDialog
+        open={!!resumeData} // Open when resumeData is not null
+        defaultName={resumeData?.name || ""}
+        onSubmit={handleNameConfirmation}
+        onCancel={handleCancelNameConfirmation}
+        isLoading={isRequestingPermission}
+        error={permissionError}
       />
     </>
   );

@@ -53,4 +53,6 @@
 # Google Cloud Credentials
 *.json
 
+dashboard.py
+
 todo

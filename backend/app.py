@@ -11,24 +11,25 @@ from google.cloud import texttospeech, speech # Added speech
 import google.auth # Import google.auth for specific exception handling
 import traceback # For detailed error logging
 
-# --- Import the LLM function ---
+# --- ✅ 1. IMPORT BOTH FUNCTIONS ---
 try:
-    from llm import query_gemini
+    from llm import query_gemini, extract_name_from_resume
 except ImportError:
-    print("❌ CRITICAL ERROR: Could not import 'query_gemini' from 'llm.py'. Ensure the file exists.")
+    print("❌ CRITICAL ERROR: Could not import from 'llm.py'. Ensure the file exists.")
     query_gemini = None
+    extract_name_from_resume = None
 
 # --- Configuration & Initialization ---
+# (This section is unchanged)
 TTS_CLIENT_INITIALIZED = False
 STT_CLIENT_INITIALIZED = False
 tts_client = None
 stt_client = None
 
-# Initialize TTS
 try:
     print("Attempting to initialize Google Cloud TTS Client...")
     tts_client = texttospeech.TextToSpeechClient()
-    tts_client.list_voices(language_code="en-US") # Check API access
+    tts_client.list_voices(language_code="en-US")
     print("✅ Google TTS Client initialized and API accessible.")
     TTS_CLIENT_INITIALIZED = True
 except google.auth.exceptions.DefaultCredentialsError:
@@ -38,7 +39,6 @@ except Exception as e:
     print(f"❌ ERROR: Could not initialize or verify Google Cloud TTS Client.")
     print(f"   Details: {type(e).__name__} - {e}")
 
-# Initialize STT
 try:
     print("Attempting to initialize Google Cloud STT Client...")
     stt_client = speech.SpeechClient()
@@ -51,7 +51,6 @@ except Exception as e:
     print(f"❌ ERROR: Could not initialize Google Cloud STT Client.")
     print(f"   Details: {type(e).__name__} - {e}")
 
-# Initialize Pygame Mixer
 try:
     pygame.mixer.init()
     print("✅ Pygame Mixer initialized.")
@@ -59,7 +58,6 @@ except Exception as e:
     print(f"⚠️ Warning: Could not initialize Pygame Mixer: {e}")
 
 app = Flask(__name__)
-# Allow frontend origins
 CORS(app, resources={r"/api/*": {"origins": ["http://localhost:3000", "http://localhost:3001"]}})
 print("✅ CORS enabled for http://localhost:3000 and http://localhost:3001.")
 
@@ -72,7 +70,7 @@ def test_endpoint():
     stt_status = "Initialized" if STT_CLIENT_INITIALIZED else "NOT Initialized"
     return jsonify({"message": "Backend connection successful!", "tts_status": tts_status, "stt_status": stt_status })
 
-# --- Resume Upload Endpoint ---
+# --- ✅ 2. THIS IS THE FULLY CORRECTED UPLOAD FUNCTION ---
 @app.route("/api/upload_resume", methods=['POST'])
 def upload_resume_api():
     print("\n--- Received /api/upload_resume request ---")
@@ -86,7 +84,26 @@ def upload_resume_api():
             with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
                 for page in doc: resume_text += page.get_text("text")
             print(f"   Successfully parsed resume: {file.filename}")
-            return jsonify({"resume_text": resume_text})
+
+            # --- THIS BLOCK WAS MISSING FROM YOUR VERSION ---
+            extracted_name = ""
+            if extract_name_from_resume:
+                print("   Attempting to extract name...")
+                try:
+                    extracted_name = extract_name_from_resume(resume_text)
+                    # This log was missing from your terminal output
+                    print(f"   Successfully extracted name: '{extracted_name}'")
+                except Exception as e:
+                    print(f"    ⚠️ Warning: Name extraction failed: {e}")
+            else:
+                 print("    ⚠️ Warning: 'extract_name_from_resume' not available.")
+            # --- END OF MISSING BLOCK ---
+            
+            return jsonify({
+                "resume_text": resume_text,
+                "extracted_name": extracted_name
+            })
+            
         except Exception as e:
             print(f"   ❌ Error parsing PDF: {e}")
             return jsonify({"error": f"Error processing PDF: {e}"}), 500
@@ -94,7 +111,7 @@ def upload_resume_api():
         print(f"   ❌ Error: Invalid file type '{file.filename}'.")
         return jsonify({"error": "Invalid file type, please upload a PDF"}), 400
 
-# --- Chat Endpoint ---
+# --- ✅ 3. THIS IS THE CORRECTED CHAT API ---
 @app.route("/api/chat", methods=['POST'])
 def chat_api():
     print("\n--- >>> /api/chat endpoint was hit! <<< ---")
@@ -103,10 +120,13 @@ def chat_api():
     if not data: return jsonify({"error": "Invalid JSON"}), 400
     print(f"   Received keys: {list(data.keys())}")
     history = data.get('history'); mode = data.get('mode', 'resume'); role = data.get('role')
-    skills = data.get('skills'); resume_text = data.get('resume_text'); user_name = data.get('user_name')
+    
+    # --- Fixed resume_text -> resumeText ---
+    skills = data.get('skills'); resume_text = data.get('resumeText'); user_name = data.get('user_name')
+
     if not isinstance(history, list): return jsonify({"error": "'history' must be list"}), 400
     if not history and (not user_name or not isinstance(user_name, str) or user_name.strip() == ""):
-         return jsonify({"error": "User name required for first turn"}), 400
+           return jsonify({"error": "User name required for first turn"}), 400
     try:
         llm_reply = query_gemini(history, mode, role, skills, resume_text, user_name)
         if isinstance(llm_reply, str) and llm_reply.startswith("Error:"):
@@ -118,6 +138,7 @@ def chat_api():
         return jsonify({"error": "Internal chat error. Check logs."}), 500
 
 # --- Speech-to-Text (STT) Endpoint ---
+# (This section is unchanged)
 @app.route("/api/stt", methods=['POST'])
 def speech_to_text_api():
     print("\n--- Received /api/stt request ---")
@@ -138,25 +159,20 @@ def speech_to_text_api():
         print(f"   Received audio: {audio_file.filename}, Content-Type: {audio_file.content_type}")
         audio_content = audio_file.read()
         if not audio_content:
-             print("   ❌ Error: Audio file content is empty.")
-             return jsonify({"error": "Received empty audio file content"}), 400
+            print("   ❌ Error: Audio file content is empty.")
+            return jsonify({"error": "Received empty audio file content"}), 400
 
         audio = speech.RecognitionAudio(content=audio_content)
 
-        # --- **** UPDATED STT CONFIG **** ---
         config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
             audio_channel_count=2,
-            language_code="en-US", # Or "en-IN"
+            language_code="en-US",
             enable_automatic_punctuation=True,
-            # --- Option 1: Try a different model ---
-            model="latest_long", # Good for general, longer speech, potentially higher accuracy
-            # --- Option 2: Use enhanced model (if available for the chosen model) ---
-            use_enhanced=True,   # Can improve accuracy, costs more. Check compatibility with model.
-            # sample_rate_hertz is not needed for WEBM_OPUS
+            model="latest_long", 
+            use_enhanced=True,   
         )
         print(f"   Using STT Config: encoding=WEBM_OPUS, channels=2, lang={config.language_code}, model={config.model}, enhanced={config.use_enhanced}")
-        # --- **** END OF UPDATED CONFIG **** ---
 
 
         print("   Calling Google STT recognize API...")
@@ -176,26 +192,25 @@ def speech_to_text_api():
         return jsonify({"transcript": transcript, "confidence": confidence})
 
     except google.api_core.exceptions.InvalidArgument as e:
-         print(f"   ❌ Error during STT processing (InvalidArgument): {e}")
-         error_str = str(e).lower()
-         # Add hints for common InvalidArgument errors
-         if "audio_channel_count" in error_str: print("      Hint: Audio channel mismatch.")
-         elif "sample_rate" in error_str: print("      Hint: Sample rate issue.")
-         elif "encoding" in error_str: print("      Hint: Encoding mismatch (Expected WEBM_OPUS).")
-         elif "model" in error_str and "not supported" in error_str: print(f"      Hint: The model '{config.model}' might not support the specified encoding/language/enhancements.")
-         else: print(f"      Hint: Check audio data format and RecognitionConfig parameters.")
-         return jsonify({"error": f"Failed to transcribe: Invalid config or audio data."}), 400
+        print(f"   ❌ Error during STT processing (InvalidArgument): {e}")
+        error_str = str(e).lower()
+        if "audio_channel_count" in error_str: print("   Hint: Audio channel mismatch.")
+        elif "sample_rate" in error_str: print("   Hint: Sample rate issue.")
+        elif "encoding" in error_str: print("   Hint: Encoding mismatch (Expected WEBM_OPUS).")
+        elif "model" in error_str and "not supported" in error_str: print(f"   Hint: The model '{config.model}' might not support the specified encoding/language/enhancements.")
+        else: print(f"   Hint: Check audio data format and RecognitionConfig parameters.")
+        return jsonify({"error": f"Failed to transcribe: Invalid config or audio data."}), 400
     except Exception as e:
         print(f"   ❌ Error during STT processing: {type(e).__name__} - {e}")
         error_str = str(e).lower()
-        if "billing" in error_str: print("      Hint: Check Billing.")
-        elif "permission denied" in error_str: print("      Hint: Check Permissions.")
-        elif "api not enabled" in error_str: print("      Hint: Check API Enabled status.")
-        # print(traceback.format_exc()) # Uncomment for full traceback if needed
+        if "billing" in error_str: print("   Hint: Check Billing.")
+        elif "permission denied" in error_str: print("   Hint: Check Permissions.")
+        elif "api not enabled" in error_str: print("   Hint: Check API Enabled status.")
         return jsonify({"error": f"Failed to transcribe audio ({type(e).__name__}). Check logs."}), 500
 
 
 # --- TTS Endpoint ---
+# (This section is unchanged)
 @app.route("/api/tts", methods=['POST'])
 def text_to_speech_api():
     print("\n--- Received /api/tts request ---")
@@ -239,7 +254,6 @@ if __name__ == '__main__':
     print("   Backend: http://localhost:5000")
     print("   Press CTRL+C to quit.")
     try:
-        # use_reloader=False prevents double init logs but requires manual restart for some changes
         app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
     except Exception as e:
-         print(f"❌ Failed to start Flask server: {e}")
+        print(f"❌ Failed to start Flask server: {e}")
