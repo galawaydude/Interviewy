@@ -6,7 +6,7 @@ import { useSpring, animated } from "@react-spring/web";
 
 interface AudioVisualizerProps {
   isActive: boolean;
-  variant?: "alex" | "user";
+  variant?: "Jeet" | "user";
   amplitude: number; // A value from 0 to 1+
 }
 
@@ -18,7 +18,7 @@ export default function AudioVisualizer({
   variant = "user",
   amplitude,
 }: AudioVisualizerProps) {
-  const isAlexSpeaking = isActive && variant === "alex";
+  const isJeetSpeaking = isActive && variant === "Jeet";
   const isUserRecording = isActive && variant === "user";
 
   // --- Spring for User Recording (Breathing) ---
@@ -30,7 +30,7 @@ export default function AudioVisualizer({
     pause: !isUserRecording,
   });
 
-  // --- Spring for Alex Speaking (Reactive) ---
+  // --- Spring for Jeet Speaking (Reactive) ---
   const reactiveAmplitude = Math.min(amplitude * 1.5, 1.2);
   const reactiveSpring = useSpring({
     scale: 1 + reactiveAmplitude,
@@ -40,7 +40,7 @@ export default function AudioVisualizer({
   
   // --- Spring for the Inner Orb ---
   const innerSpring = useSpring({
-    scale: isAlexSpeaking ? 1.0 + reactiveAmplitude * 0.2 : isUserRecording ? 1.05 : 1.0,
+    scale: isJeetSpeaking ? 1.0 + reactiveAmplitude * 0.2 : isUserRecording ? 1.05 : 1.0,
     config: { tension: 180, friction: 22 },
   });
 
@@ -48,20 +48,20 @@ export default function AudioVisualizer({
   const springProps = isUserRecording ? breathingSpring : reactiveSpring;
 
   // --- ✅ NEW GRADIENT STYLES ---
-  const alexGradient = "radial-gradient(circle, rgba(96,165,250,0.5) 0%, rgba(37,99,235,0.0) 70%)";
+  const JeetGradient = "radial-gradient(circle, rgba(96,165,250,0.5) 0%, rgba(37,99,235,0.0) 70%)";
   const userGradient = "radial-gradient(circle, rgba(74,222,128,0.5) 0%, rgba(22,163,74,0.0) 70%)";
   
-  const innerAlexCore = "radial-gradient(circle, rgba(147,197,253,1) 0%, rgba(59,130,246,1) 100%)";
+  const innerJeetCore = "radial-gradient(circle, rgba(147,197,253,1) 0%, rgba(59,130,246,1) 100%)";
   const innerUserCore = "radial-gradient(circle, rgba(134,239,172,1) 0%, rgba(34,197,94,1) 100%)";
   const innerIdleCore = "radial-gradient(circle, rgba(156,163,175,1) 0%, rgba(107,114,128,1) 100%)";
   
   const gradientStyle = {
-    background: variant === 'alex' ? alexGradient : userGradient,
+    background: variant === 'Jeet' ? JeetGradient : userGradient,
   };
   
   const innerCoreStyle = {
     background: isActive 
-      ? (variant === 'alex' ? innerAlexCore : innerUserCore) 
+      ? (variant === 'Jeet' ? innerJeetCore : innerUserCore) 
       : innerIdleCore,
   };
   // --- END NEW STYLES ---

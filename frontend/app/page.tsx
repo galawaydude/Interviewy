@@ -243,7 +243,7 @@ function HomePageContent() {
             <p className="text-gray-600 max-w-lg mx-auto leading-relaxed">
               Choose your interview type below, grant microphone access when
               prompted, and you'll jump right into a practice session. Our AI
-              interviewer, Alex, will ask relevant questions. Speak clearly,
+              interviewer, Jeet, will ask relevant questions. Speak clearly,
               think through your answers, and get valuable practice!
             </p>
           </section>

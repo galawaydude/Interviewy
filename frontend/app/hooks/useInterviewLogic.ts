@@ -14,7 +14,7 @@ import { useSpeechToText } from "./useSpeechToText";
 
 // Type Definitions
 type Message = {
-  speaker: "alex" | "user";
+  speaker: "Jeet" | "user";
   text: string;
 };
 
@@ -125,24 +125,24 @@ export function useInterviewLogic({
         if (!data.reply || data.reply.trim() === "") {
           console.warn("[Logic] Received empty reply.");
           const noResponseMsg = {
-            speaker: "alex" as const,
+            speaker: "Jeet" as const,
             text: "(No response generated. You can continue or ask differently.)",
           };
           setMessages((prev) => [...prev, noResponseMsg]);
         } else {
-          const alexReplyText = data.reply;
-          const alexReply: Message = { speaker: "alex", text: alexReplyText };
-          setMessages((prev) => [...prev, alexReply]);
+          const JeetReplyText = data.reply;
+          const JeetReply: Message = { speaker: "Jeet", text: JeetReplyText };
+          setMessages((prev) => [...prev, JeetReply]);
 
           if (
-            alexReplyText.startsWith("Error:") ||
-            alexReplyText.startsWith("An error occurred") ||
-            alexReplyText.startsWith("Sorry, an error occurred")
+            JeetReplyText.startsWith("Error:") ||
+            JeetReplyText.startsWith("An error occurred") ||
+            JeetReplyText.startsWith("Sorry, an error occurred")
           ) {
-            console.error(`[Logic] Received AI-side error: ${alexReplyText}`);
-            setErrorState(alexReplyText);
+            console.error(`[Logic] Received AI-side error: ${JeetReplyText}`);
+            setErrorState(JeetReplyText);
           } else {
-            speak(alexReplyText);
+            speak(JeetReplyText);
           }
         }
       } catch (error) {
@@ -150,7 +150,7 @@ export function useInterviewLogic({
         const errorMsgText =
           error instanceof Error ? error.message : "Failed to get response.";
         const errorMsg = {
-          speaker: "alex" as const,
+          speaker: "Jeet" as const,
           text: `Sorry, an error occurred: ${errorMsgText}`,
         };
         setMessages((prev) => [...prev, errorMsg]);
@@ -235,8 +235,8 @@ export function useInterviewLogic({
   const getStatusText = () => {
     if (isRecording) return "Listening... Speak now.";
     if (isTranscribing) return "Processing your response...";
-    if (isLoading) return "Alex is thinking...";
-    if (isSpeaking) return "Alex is speaking...";
+    if (isLoading) return "Jeet is thinking...";
+    if (isSpeaking) return "Jeet is speaking...";
     if (errorState) return "An error occurred.";
     return "It's your turn. Press the mic to speak."; // Default state
   };

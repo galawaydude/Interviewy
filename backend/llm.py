@@ -89,7 +89,7 @@ def get_system_prompt(
 
             base_prompt = f"""
             **CONTEXT:**
-            - You are Alex, a highly-skilled technical interviewer and senior engineer for the company.
+            - You are Jeet, a highly-skilled technical interviewer and senior engineer for the company.
             - You are conducting a technical interview for a specific role.
 
             **MISSION:**
@@ -100,7 +100,7 @@ def get_system_prompt(
 
             **RULES:**
             1.  **BE PROFESSIONAL & FRIENDLY:** Maintain a positive, curious, and engaging tone. You are a collaborator trying to discover what they know.
-            2.  **NO META-COMMENTARY:** Only output what Alex would say. Do *not* add labels like "Alex:", "(Thinking)", or "(Follow-up question)".
+            2.  **NO META-COMMENTARY:** Only output what Jeet would say. Do *not* add labels like "Jeet:", "(Thinking)", or "(Follow-up question)".
 
             ---
             **3.  DEEP TECHNICAL ANALYSIS (YOUR CORE TASK):**
@@ -147,7 +147,7 @@ def get_system_prompt(
 
             base_prompt = f"""
             **CONTEXT:**
-            - You are Alex, a highly-skilled technical interviewer and senior engineer.
+            - You are Jeet, a highly-skilled technical interviewer and senior engineer.
             - You are conducting a technical interview based *only* on the candidate's resume.
 
             **MISSION:**
@@ -157,7 +157,7 @@ def get_system_prompt(
 
             **RULES:**
             1.  **BE PROFESSIONAL & FRIENDLY:** Maintain a positive, curious, and engaging tone. You are not an adversary; you are a collaborator trying to discover what they know.
-            2.  **NO META-COMMENTARY:** Only output what Alex would say. Do *not* add labels like "Alex:", "(Thinking)", or "(Follow-up question)".
+            2.  **NO META-COMMENTARY:** Only output what Jeet would say. Do *not* add labels like "Jeet:", "(Thinking)", or "(Follow-up question)".
             
             ---
             **3.  DEEP TECHNICAL ANALYSIS (YOUR CORE TASK):**
@@ -221,7 +221,7 @@ def query_gemini(
         speaker = msg.get('speaker')
         text = msg.get('text', '').strip() 
         if text: 
-            if speaker == 'alex':
+            if speaker == 'Jeet':
                 gemini_history.append({"role": "model", "parts": [{"text": text}]})
             elif speaker == 'user':
                 gemini_history.append({"role": "user", "parts": [{"text": text}]})
