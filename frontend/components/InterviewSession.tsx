@@ -51,7 +51,7 @@ export default function InterviewSession(props: InterviewSessionProps) {
   const isMicDisabled = isLoading || isSpeaking || isTranscribing;
 
   const isVisualizerActive = isSpeaking || isRecording;
-  const visualizerVariant = isSpeaking ? "Jeet" : "user";
+  const visualizerVariant = isSpeaking ? "Alex" : "user";
   const visualizerAmplitude = isSpeaking ? amplitude : 0;
 
   return (
