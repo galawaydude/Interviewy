@@ -193,11 +193,22 @@ export function useTextToSpeech({ audioElementRef }: UseTextToSpeechProps) {
             );
           }
         });
-      } catch (error) {
-        console.error("[TTS-Hook] Error:", error);
-        setTtsError(
-          error instanceof Error ? error.message : "Unknown audio error."
-        );
+      } catch (error: any) { // --- ✅ 1. ADD 'any' TYPE TO 'error' ---
+
+        // --- ✅ 2. THIS IS THE FIX ---
+        // We check the error's 'name' property. If it's 'AbortError',
+        // it's just a harmless interruption, so we log it and return.
+        if (error.name === "AbortError") {
+          console.log("[TTS-Hook] Audio playback aborted. This is normal.");
+        } else {
+          // This is a *real* error that we should log and show.
+          console.error("[TTS-Hook] Error:", error);
+          setTtsError(
+            error instanceof Error ? error.message : "Unknown audio error."
+          );
+        }
+        // --- END OF FIX ---
+
       } finally {
         console.log("[TTS-Hook] Cleaning up state.");
         setIsSpeaking(false);

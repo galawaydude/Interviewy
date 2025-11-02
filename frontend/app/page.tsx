@@ -1,3 +1,4 @@
+// app/page.tsx
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -6,10 +7,18 @@ import { Button } from "@/components/ui/button";
 import InterviewSession from "@/components/InterviewSession";
 import PositionForm from "@/components/PositionForm";
 import ResumeUploadDialog from "@/components/ResumeUploadDialog";
-// --- 1. IMPORT THE NEW DIALOG ---
 import NameConfirmationDialog from "@/components/NameConfirmationDialog";
 import { FileText, Briefcase, Mic } from "lucide-react";
 import { TypeAnimation } from "react-type-animation";
+
+// --- ✅ 1. DEFINE A TYPE FOR THE INTERVIEW PROPS ---
+type InterviewData = {
+  mode: "resume" | "position";
+  userName: string;
+  role?: string;
+  skills?: string;
+  resumeText?: string;
+};
 
 // Suspense wrapper
 export default function Home() {
@@ -39,18 +48,16 @@ function HomePageContent() {
 
   const [showPositionDialog, setShowPositionDialog] = useState(false);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
-  
-  // --- 2. STATE FOR THE NEW FLOW ---
-  const [resumeData, setResumeData] = useState<{ text: string, name: string } | null>(null);
+
+  // --- (Resume state is unchanged) ---
+  const [resumeData, setResumeData] = useState<{ text: string; name: string } | null>(
+    null
+  );
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
 
-  // --- These states are for the *final* interview ---
-  const [resumeText, setResumeText] = useState<string | undefined>(undefined);
-  const [userNameForResume, setUserNameForResume] = useState<
-    string | undefined
-  >(undefined);
-  
+  // --- ✅ 2. THIS IS THE NEW STATE to control rendering ---
+  const [interviewData, setInterviewData] = useState<InterviewData | null>(null);
 
   // Animation staging (unchanged)
   const [showTitle, setShowTitle] = useState(false);
@@ -70,93 +77,102 @@ function HomePageContent() {
     };
   }, []);
 
-  // URL Params (unchanged)
-  const interviewMode = searchParams.get("mode");
-  const role = searchParams.get("role");
-  const skills = searchParams.get("skills");
-  const nameParam = searchParams.get("name");
-
-  // `handlePositionSubmit` is unchanged
+  // --- ✅ 3. MODIFY `handlePositionSubmit` ---
   const handlePositionSubmit = useCallback(
     async (submittedName: string, submittedRole: string, submittedSkills: string) => {
       setIsRequestingPermission(true);
       setPermissionError(null);
       try {
+        // 1. Request Mic
         await navigator.mediaDevices.getUserMedia({ audio: true });
-        setResumeText(undefined);
-        setUserNameForResume(undefined);
-        const encodedName = encodeURIComponent(submittedName);
-        const encodedRole = encodeURIComponent(submittedRole);
-        const encodedSkills = encodeURIComponent(submittedSkills);
+
+        // 2. Request Fullscreen (This is the trusted click)
+        await document.documentElement.requestFullscreen();
+
+        // 3. Set interview data with STATE (no router.push)
         setShowPositionDialog(false);
-        router.push(
-          `/?mode=position&name=${encodedName}&role=${encodedRole}&skills=${encodedSkills}`
-        );
+        setInterviewData({
+          mode: "position",
+          userName: submittedName,
+          role: submittedRole,
+          skills: submittedSkills,
+        });
       } catch (err: any) {
-        if (
-          err instanceof DOMException &&
-          (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")
-        ) {
-          setPermissionError(
-            "Microphone access was denied. You must allow it in your browser settings to continue."
-          );
+        // Handle errors for *both* mic and fullscreen
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          if (err.message.includes("fullscreen")) {
+            setPermissionError(
+              "Fullscreen was denied. You must allow fullscreen to start."
+            );
+          } else {
+            setPermissionError(
+              "Microphone access was denied. You must allow it to continue."
+            );
+          }
         } else {
           setPermissionError(
-            "Could not access microphone. Please check your hardware and permissions."
+            "Could not access microphone or enter fullscreen. Please check your hardware and permissions."
           );
         }
         setIsRequestingPermission(false);
       }
     },
-    [router]
+    [] // No dependencies needed
   );
 
-  // --- 3. MODIFIED `handleResumeSubmit` ---
+  // --- (handleResumeSubmit is unchanged) ---
   const handleResumeSubmit = useCallback(
     (extractedText: string, extractedName: string) => {
       setResumeData({ text: extractedText, name: extractedName });
       setShowResumeDialog(false); // Close upload dialog
     },
-    [] 
+    []
   );
 
-  // --- 4. NEW HANDLER for the NameConfirmationDialog ---
+  // --- ✅ 4. MODIFY `handleNameConfirmation` ---
   const handleNameConfirmation = useCallback(
     async (confirmedName: string) => {
-      if (!resumeData) return; 
-
+      if (!resumeData) return;
       const resumeText = resumeData.text;
-
       setIsRequestingPermission(true);
       setPermissionError(null);
 
       try {
+        // 1. Request Mic
         await navigator.mediaDevices.getUserMedia({ audio: true });
-        
+
+        // 2. Request Fullscreen (This is the trusted click)
+        await document.documentElement.requestFullscreen();
+
+        // 3. Set interview data with STATE (no router.push)
         const finalName = confirmedName.trim() || "Candidate";
-        setUserNameForResume(finalName);
-        setResumeText(resumeText);
-        const encodedName = encodeURIComponent(finalName);
-        
+        setInterviewData({
+          mode: "resume",
+          userName: finalName,
+          resumeText: resumeText,
+        });
         setResumeData(null); // Close the name confirmation dialog
-        router.push(`/?mode=resume&name=${encodedName}`);
       } catch (err: any) {
-        if (
-          err instanceof DOMException &&
-          (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")
-        ) {
-           setPermissionError(
-            "Microphone access was denied. You must allow it in your browser settings to continue."
-          );
+         // (Error handling is unchanged)
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+           if (err.message.includes("fullscreen")) {
+            setPermissionError(
+              "Fullscreen was denied. You must allow fullscreen to start."
+            );
+          } else {
+            setPermissionError(
+              "Microphone access was denied. You must allow it to continue."
+            );
+          }
         } else {
-           setPermissionError(
-            "Could not access microphone. Please check your hardware and permissions."
+          setPermissionError(
+            "Could not access microphone or enter fullscreen. Please check your hardware and permissions."
           );
         }
-        setIsRequestingPermission(false); 
+        setIsRequestingPermission(false);
       }
     },
-    [router, resumeData] 
+    [resumeData]
   );
 
   const handleCancelNameConfirmation = () => {
@@ -165,46 +181,46 @@ function HomePageContent() {
     setPermissionError(null);
   };
 
-
-  // --- (Cleanup effect is unchanged) ---
-  useEffect(() => {
-    if (!searchParams.get("mode")) {
-      setResumeText(undefined);
-      setUserNameForResume(undefined);
-      setIsRequestingPermission(false);
-      setPermissionError(null);
-      setResumeData(null);
+  // --- ✅ 5. ADD HANDLER TO END THE INTERVIEW ---
+  // This will be passed to the InterviewSession component
+  const handleInterviewEnd = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
     }
-  }, [searchParams]);
+    setInterviewData(null); // This takes us back to the landing page
+  }, []);
 
-  // --- (InterviewSession rendering is unchanged) ---
-  if (interviewMode && nameParam) {
-    const decodedName = decodeURIComponent(nameParam);
-    const decodedRole = role ? decodeURIComponent(role) : undefined;
-    const decodedSkills = skills ? decodeURIComponent(skills) : undefined;
-    const currentResumeText = interviewMode === "resume" ? resumeText : undefined;
-    const currentUserName = decodedName;
+  // --- ✅ 6. CLEANUP EFFECT (Unchanged, but now makes more sense) ---
+  // This will clear state if the user manually navigates with URL
+  useEffect(() => {
+    if (searchParams.get("mode")) {
+      router.replace("/"); // Clear the bad URL
+      setInterviewData(null);
+    }
+    // No other cleanup needed, 'goBack' is handled by onEnd
+  }, [searchParams, router]);
 
+  // --- ✅ 7. MODIFY RENDER LOGIC ---
+  // This is the core fix. We render one or the other.
+  if (interviewData) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-900">
         <InterviewSession
-          mode={interviewMode as "resume" | "position"}
-          userName={currentUserName}
-          role={decodedRole}
-          skills={decodedSkills}
-          resumeText={currentResumeText}
+          {...interviewData}
+          onEnd={handleInterviewEnd} // Pass the 'End' handler down
         />
       </main>
     );
   }
 
-  // --- (Landing page JSX is unchanged) ---
+  // --- ✅ 8. YOUR LANDING PAGE UI (RESTORED) ---
+  // This is returned when interviewData is null
   return (
     <>
       <main className="grid-background flex min-h-screen items-center justify-center p-6 sm:p-12 text-gray-900">
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
-           {/* Title */}
-           <header
+          {/* Title */}
+          <header
             className={`text-center mb-16 transition-all duration-700 ${
               showTitle ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
@@ -259,7 +275,6 @@ function HomePageContent() {
             </h3>
 
             <div className="flex flex-col items-stretch gap-12">
-
               {/* Resume Card */}
               <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 p-6 bg-white/80 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200">
                 <div className="flex-shrink-0 p-4 bg-purple-100 rounded-full shadow-inner">
@@ -396,8 +411,7 @@ function HomePageContent() {
         </div>
       </main>
 
-      {/* --- 5. ADD THE DIALOGS TO THE RENDER --- */}
-
+      {/* --- (Dialogs are unchanged) --- */}
       <PositionForm
         open={showPositionDialog}
         onOpenChange={(isOpen) =>
@@ -407,17 +421,17 @@ function HomePageContent() {
         isLoading={isRequestingPermission}
         error={permissionError}
       />
-      
+
       <ResumeUploadDialog
         open={showResumeDialog}
         onOpenChange={(isOpen) => {
-            if (!isRequestingPermission) setShowResumeDialog(isOpen);
+          if (!isRequestingPermission) setShowResumeDialog(isOpen);
         }}
         onSubmit={handleResumeSubmit}
       />
 
       <NameConfirmationDialog
-        open={!!resumeData} // Open when resumeData is not null
+        open={!!resumeData}
         defaultName={resumeData?.name || ""}
         onSubmit={handleNameConfirmation}
         onCancel={handleCancelNameConfirmation}

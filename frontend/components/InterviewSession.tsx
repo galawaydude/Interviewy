@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal, Mic, Square, X } from "lucide-react";
 import { useInterviewLogic } from "@/app/hooks/useInterviewLogic";
-import { useRef } from "react"; // <-- Import useRef
+import { useRef } from "react";
+import ExitFullscreenDialog from "@/components/ExitFullscreenDialog";
 
 // Type Definition
 interface InterviewSessionProps {
@@ -15,6 +16,7 @@ interface InterviewSessionProps {
   role?: string;
   skills?: string;
   resumeText?: string;
+  onEnd: () => void;
 }
 
 // Component
@@ -22,10 +24,10 @@ export default function InterviewSession(props: InterviewSessionProps) {
   // --- Create ref for the audio element ---
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
-  // Pass the ref to the logic hook
+  // Pass the ref and props (including onEnd) to the logic hook
   const { state, refs, handlers, computed } = useInterviewLogic({
     ...props,
-    audioElementRef: audioPlayerRef, // <-- Pass the ref
+    audioElementRef: audioPlayerRef, // Pass the ref
   });
 
   const {
@@ -34,23 +36,24 @@ export default function InterviewSession(props: InterviewSessionProps) {
     isRecording,
     isTranscribing,
     errorState,
-    interviewStarted,
     amplitude,
+    showExitModal,
   } = state;
 
   const { mainContainerRef } = refs; // Get main ref from hook
   const {
     startRecording: handleStartRecording,
     stopRecording: handleStopRecording,
-    goBack,
+    // --- `goBack` is no longer used by the 'X' button ---
+    // goBack, 
+    handleConfirmExit,
+    handleCancelExit,
+    handleRequestExit, // --- ✅ 1. GET THE NEW HANDLER ---
   } = handlers;
   const { statusText } = computed;
 
-  // Mic is disabled if AI is thinking, speaking, or transcribing.
-  // It is *NOT* disabled if the interview hasn't started.
-  const isMicDisabled = isLoading || isSpeaking || isTranscribing;
-
-  const isVisualizerActive = isSpeaking || isRecording;
+  const isMicDisabled = isLoading || isSpeaking || isTranscribing || showExitModal;
+  const isVisualizerActive = (isSpeaking || isRecording) && !showExitModal;
   const visualizerVariant = isSpeaking ? "Alex" : "user";
   const visualizerAmplitude = isSpeaking ? amplitude : 0;
 
@@ -71,8 +74,8 @@ export default function InterviewSession(props: InterviewSessionProps) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={goBack}
-          disabled={isRecording || isTranscribing}
+          onClick={handleRequestExit} // --- ✅ 2. ATTACH THE NEW HANDLER HERE ---
+          disabled={isRecording || isTranscribing || showExitModal}
           aria-label="Leave interview"
           className="text-gray-300 hover:bg-gray-700 hover:text-white"
         >
@@ -80,7 +83,7 @@ export default function InterviewSession(props: InterviewSessionProps) {
         </Button>
       </header>
 
-      {/* --- ✅ Main Content (Layout Fixed) --- */}
+      {/* --- MAIN CONTENT (unchanged) --- */}
       <main className="flex-grow flex flex-col items-center justify-center text-center p-6 space-y-8">
         {/* 1. Visualizer */}
         <AudioVisualizer
@@ -89,11 +92,13 @@ export default function InterviewSession(props: InterviewSessionProps) {
           amplitude={visualizerAmplitude}
         />
         
-        {/* 2. Status Text (Now separate with space) */}
-        <div className="h-20 flex items-center justify-center"> {/* Container for text */}
+        {/* 2. Status Text */}
+        <div className="h-20 flex items-center justify-center">
           <p
             className={`text-lg text-gray-300 transition-opacity duration-300 ${
-              isLoading || isTranscribing ? "animate-pulse" : ""
+              (isLoading || isTranscribing) && !showExitModal
+                ? "animate-pulse"
+                : ""
             }`}
           >
             {statusText}
@@ -112,10 +117,10 @@ export default function InterviewSession(props: InterviewSessionProps) {
           </Alert>
         )}
       </main>
-      {/* --- END OF LAYOUT FIX --- */}
+      {/* --- END OF MAIN --- */}
 
 
-      {/* Footer */}
+      {/* --- FOOTER (unchanged) --- */}
       <footer className="w-full flex items-center justify-center p-6">
         <Button
           variant={isRecording ? "destructive" : "secondary"}
@@ -123,7 +128,7 @@ export default function InterviewSession(props: InterviewSessionProps) {
           className="h-16 w-16 rounded-full"
           onClick={isRecording ? handleStopRecording : handleStartRecording}
           disabled={isMicDisabled}
-          aria-label={isRecording ? "Stop recording" : "Start interview"}
+          aria-label={isRecording ? "Stop recording" : "Start recording"}
         >
           {isRecording ? (
             <Square className="h-6 w-6" />
@@ -132,6 +137,14 @@ export default function InterviewSession(props: InterviewSessionProps) {
           )}
         </Button>
       </footer>
+      {/* --- END OF FOOTER --- */}
+
+      {/* --- (Dialog is unchanged) --- */}
+      <ExitFullscreenDialog
+        open={showExitModal}
+        onConfirm={handleConfirmExit}
+        onCancel={handleCancelExit}
+      />
     </div>
   );
 }
