@@ -47,6 +47,9 @@ export function useInterviewLogic({
   const [isLoading, setIsLoading] = useState<boolean>(true); 
   const [errorState, setErrorState] = useState<string | null>(null);
   const [showExitModal, setShowExitModal] = useState<boolean>(false);
+
+  const [showAltTabModal, setShowAltTabModal] = useState<boolean>(false);
+
   const [timeLeft, setTimeLeft] = useState<number | null>(
     durationMinutes ? durationMinutes * 60 : null
   );
@@ -256,6 +259,39 @@ export function useInterviewLogic({
     setShowExitModal(true);
   }, [stopSpeaking, stopStt]);
 
+  const handleReturnFromAltTab = useCallback(() => {
+    setShowAltTabModal(false);
+    mainContainerRef.current?.requestFullscreen().catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handleBlur = () => {
+      // Window focus lost — likely Alt+Tab or switching apps
+      stopSpeaking();
+      // stopRecording();
+      stopStt(); // does this stop?
+      setShowAltTabModal(true);
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        // User changed tabs, minimized, or alt-tabbed
+        stopSpeaking();
+        // stopRecording();
+        stopStt(); // does this stop?
+        setShowAltTabModal(true);
+      }
+    };
+
+    window.addEventListener("blur", handleBlur);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [stopSpeaking, stopStt]);
+
   // Status Text
   const getStatusText = () => {
     if (isFinishing || isVideoUploading) return "Saving interview data... Please wait.";
@@ -278,6 +314,7 @@ export function useInterviewLogic({
       messages,
       amplitude,
       showExitModal,
+      showAltTabModal,
       timeLeft,
     },
     refs: { mainContainerRef },
@@ -287,6 +324,7 @@ export function useInterviewLogic({
       handleConfirmExit,
       handleCancelExit,
       handleRequestExit,
+      handleReturnFromAltTab,
     },
     computed: { statusText: getStatusText() },
   };

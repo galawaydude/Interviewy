@@ -1,12 +1,13 @@
 "use client";
 
-import AudioVisualizer from "../components/ui/AudioVisualizer";
-import { Button } from "../components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import AudioVisualizer from "./ui/AudioVisualizer";
+import { Button } from "./ui/button";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Terminal, Mic, Square, X, Captions, CaptionsOff, Clock } from "lucide-react";
 import { useInterviewLogic } from "../app/hooks/useInterviewLogic";
 import { useRef, useState } from "react";
-import ExitFullscreenDialog from "../components/ExitFullscreenDialog";
+import ExitFullscreenDialog from "./ExitFullscreenDialog";
+import AltTabWarningDialog from "./AltTabWarningDialog";
 import { Video } from 'lucide-react';
 
 interface InterviewSessionProps {
@@ -38,6 +39,7 @@ export default function InterviewSession(props: InterviewSessionProps) {
     amplitude,
     showExitModal,
     messages,
+    showAltTabModal,
     timeLeft
   } = state;
 
@@ -48,6 +50,7 @@ export default function InterviewSession(props: InterviewSessionProps) {
     handleConfirmExit,
     handleCancelExit,
     handleRequestExit,
+    handleReturnFromAltTab, 
   } = handlers;
   const { statusText } = computed;
 
@@ -168,6 +171,7 @@ export default function InterviewSession(props: InterviewSessionProps) {
       </footer>
 
       <ExitFullscreenDialog open={showExitModal} onConfirm={handleConfirmExit} onCancel={handleCancelExit} />
+      <AltTabWarningDialog open={state.showAltTabModal} onReturn={handlers.handleReturnFromAltTab} />
     </div>
   );
 }
