@@ -1,7 +1,7 @@
 // components/ui/AudioVisualizer.tsx
 "use client";
 
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 import { useSpring, animated } from "@react-spring/web";
 
 interface AudioVisualizerProps {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "../components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,8 +9,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label"; 
+} from "../components/ui/dialog";
+import { Label } from "../components/ui/label"; 
 import { UploadCloud, FileText, X } from "lucide-react"; 
 
 interface ResumeUploadDialogProps {

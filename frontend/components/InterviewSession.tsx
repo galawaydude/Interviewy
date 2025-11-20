@@ -1,13 +1,13 @@
 // components/InterviewSession.tsx
 "use client";
 
-import AudioVisualizer from "@/components/ui/AudioVisualizer";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import AudioVisualizer from "../components/ui/AudioVisualizer";
+import { Button } from "../components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Terminal, Mic, Square, X } from "lucide-react";
-import { useInterviewLogic } from "@/app/hooks/useInterviewLogic";
+import { useInterviewLogic } from "../app/hooks/useInterviewLogic";
 import { useRef } from "react";
-import ExitFullscreenDialog from "@/components/ExitFullscreenDialog";
+import ExitFullscreenDialog from "../components/ExitFullscreenDialog";
 
 // Type Definition
 interface InterviewSessionProps {

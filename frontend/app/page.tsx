@@ -3,11 +3,11 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import InterviewSession from "@/components/InterviewSession";
-import PositionForm from "@/components/PositionForm";
-import ResumeUploadDialog from "@/components/ResumeUploadDialog";
-import NameConfirmationDialog from "@/components/NameConfirmationDialog";
+import { Button } from "../components/ui/button";
+import InterviewSession from "../components/InterviewSession";
+import PositionForm from "../components/PositionForm";
+import ResumeUploadDialog from "../components/ResumeUploadDialog";
+import NameConfirmationDialog from "../components/NameConfirmationDialog";
 import { FileText, Briefcase, Mic } from "lucide-react";
 import { TypeAnimation } from "react-type-animation";
 
