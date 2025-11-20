@@ -7,6 +7,7 @@ import { Terminal, Mic, Square, X, Captions, CaptionsOff, Clock } from "lucide-r
 import { useInterviewLogic } from "../app/hooks/useInterviewLogic";
 import { useRef, useState } from "react";
 import ExitFullscreenDialog from "../components/ExitFullscreenDialog";
+import { Video } from 'lucide-react';
 
 interface InterviewSessionProps {
   mode: "resume" | "position" | "evaluation";
@@ -79,6 +80,12 @@ export default function InterviewSession(props: InterviewSessionProps) {
             {props.role || "Interview"}
           </p>
         </div>
+        {props.mode === "evaluation" && (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-950 border border-red-800 text-red-500 text-xs font-bold uppercase tracking-widest animate-pulse">
+               <div className="h-2 w-2 rounded-full bg-red-500" />
+               REC
+            </div>
+         )}
 
         <div className="flex items-center gap-4">
           {/* TIMER DISPLAY */}

@@ -6,7 +6,7 @@ import sqlite3
 import uuid
 import json
 import datetime
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 from google.cloud import texttospeech, speech
 import google.auth
@@ -42,10 +42,13 @@ CORS(app, resources={r"/api/*": {"origins": ["http://localhost:3000", "http://lo
 
 # --- DATABASE SETUP ---
 DB_NAME = "interview_system.db"
+VIDEO_UPLOAD_FOLDER = "video_uploads" # New folder for videos
+os.makedirs(VIDEO_UPLOAD_FOLDER, exist_ok=True)
 
 def init_db():
     with sqlite3.connect(DB_NAME) as conn:
         cursor = conn.cursor()
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS sessions (
                 access_key TEXT PRIMARY KEY,
@@ -54,7 +57,8 @@ def init_db():
                 role TEXT,
                 duration_minutes INTEGER,
                 status TEXT DEFAULT 'pending', 
-                transcript TEXT
+                transcript TEXT,
+                video_filename TEXT
             )
         ''')
         conn.commit()
@@ -62,6 +66,36 @@ def init_db():
 init_db()
 
 # --- ENDPOINTS ---
+@app.route("/api/upload_video", methods=['POST'])
+def upload_video():
+    if 'video' not in request.files:
+        return jsonify({"error": "No video part"}), 400
+    
+    file = request.files['video']
+    access_key = request.form.get('key')
+    
+    if not file or not access_key:
+        return jsonify({"error": "Missing file or key"}), 400
+
+    filename = f"{access_key}_{int(datetime.datetime.now().timestamp())}.webm"
+    save_path = os.path.join(VIDEO_UPLOAD_FOLDER, filename)
+    
+    try:
+        file.save(save_path)
+        
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.execute(
+                "UPDATE sessions SET video_filename=? WHERE access_key=?",
+                (filename, access_key)
+            )
+        return jsonify({"success": True, "filename": filename})
+    except Exception as e:
+        print(f"Video upload failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/videos/<filename>", methods=['GET'])
+def serve_video(filename):
+    return send_from_directory(VIDEO_UPLOAD_FOLDER, filename)
 
 @app.route("/api/test", methods=['GET'])
 def test_endpoint():
@@ -87,24 +121,34 @@ def get_report(key):
     try:
         transcript_json = None
         role = "Candidate"
+        video_filename = None
+        
         with sqlite3.connect(DB_NAME) as conn:
-            cursor = conn.execute("SELECT transcript, role FROM sessions WHERE access_key = ?", (key,))
+            cursor = conn.execute("SELECT transcript, role, video_filename FROM sessions WHERE access_key = ?", (key,))
             row = cursor.fetchone()
             if not row: return jsonify({"error": "Key not found"}), 404
+            
             transcript_raw = row[0]
             role = row[1] if row[1] else "Candidate"
+            video_filename = row[2] # Fetch video filename
+            
             if transcript_raw:
                 transcript_json = json.loads(transcript_raw)
 
         if not transcript_json:
             return jsonify({"error": "No interview data found."}), 400
 
+        # Generate report using LLM (existing logic)
         report_json_str = generate_interview_report(transcript_json, role)
         
         try:
             report_data = json.loads(report_json_str)
         except:
             report_data = {"raw_text": report_json_str}
+            
+        # Append video URL to the response
+        if video_filename:
+            report_data["video_url"] = f"http://localhost:5000/api/videos/{video_filename}"
 
         return jsonify(report_data)
     except Exception as e:
@@ -222,7 +266,6 @@ def speech_to_text_api():
         audio = speech.RecognitionAudio(content=audio_content)
         config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
-            audio_channel_count=2,
             language_code="en-US",
             enable_automatic_punctuation=True,
             model="latest_long",

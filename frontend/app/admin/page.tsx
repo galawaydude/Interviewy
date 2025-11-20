@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
-import { Loader2, RefreshCcw, FileText, KeyRound } from "lucide-react";
+import { Loader2, RefreshCcw, FileText, KeyRound, Video } from "lucide-react";
 
 export default function AdminPage() {
   const [keys, setKeys] = useState<any[]>([]);
@@ -125,6 +125,19 @@ export default function AdminPage() {
                         <p className="text-sm text-gray-500 uppercase tracking-wider font-semibold mt-1">Overall Score</p>
                       </div>
                     </div>
+
+                    {report.video_url && (
+                    <div className="mb-8 bg-black rounded-xl overflow-hidden shadow-2xl border border-gray-800">
+                      <div className="bg-gray-800 px-4 py-2 flex items-center gap-2 text-gray-300 text-sm font-medium">
+                        <Video className="h-4 w-4" /> Interview Recording
+                      </div>
+                      <video 
+                        src={report.video_url} 
+                        controls 
+                        className="w-full aspect-video"
+                      />
+                    </div>
+                  )}
                     
                     <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 mb-8">
                       <h4 className="font-bold text-blue-900 mb-2">Executive Summary</h4>

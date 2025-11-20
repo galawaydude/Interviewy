@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useTextToSpeech } from "./useTextToSpeech";
 import { useSpeechToText } from "./useSpeechToText";
+import { useVideoRecorder } from "./useVideoRecorder"; // Import Video Hook
 
 type Message = {
   speaker: "alex" | "user";
@@ -40,40 +41,24 @@ export function useInterviewLogic({
   audioElementRef,
   onEnd,
 }: UseInterviewLogicProps) {
-  // Main State
+  
+  // State
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true); 
   const [errorState, setErrorState] = useState<string | null>(null);
   const [showExitModal, setShowExitModal] = useState<boolean>(false);
-  
-  // --- TIMER STATE ---
   const [timeLeft, setTimeLeft] = useState<number | null>(
     durationMinutes ? durationMinutes * 60 : null
   );
+  const [isFinishing, setIsFinishing] = useState(false); // NEW: Lock state during upload
 
   // Refs
   const mainContainerRef = useRef<HTMLDivElement>(null);
   const effectRan = useRef<boolean>(false);
   const intentionalExitRef = useRef<boolean>(false);
+  const audioInitDone = useRef<boolean>(false); // Track if audio is init
 
-  // --- TIMER EFFECT ---
-  useEffect(() => {
-    if (mode !== "evaluation" || timeLeft === null) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev === null || prev <= 0) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [mode, timeLeft]);
-
-  // Child Hooks
+  // --- HOOKS ---
   const {
     speak,
     stop: stopSpeaking,
@@ -84,11 +69,78 @@ export function useInterviewLogic({
     initAudioSystem,
   } = useTextToSpeech({ audioElementRef });
 
+  const {
+    startVideoRecording,
+    stopAndUploadVideo,
+    isRecordingVideo,
+    isVideoUploading
+  } = useVideoRecorder();
+
+  // --- MASTER END FUNCTION ---
+  // This is the single source of truth for stopping everything.
+  const forceEndSession = useCallback(async () => {
+      if (isFinishing) return; // Prevent double triggers
+      setIsFinishing(true);
+      setIsLoading(true); // Show loading on UI
+
+      console.log("🛑 Force End Session triggered.");
+
+      // 1. Stop AI & Speech immediately
+      stopSpeaking();
+      
+      // 2. Save Video (Wait for it!)
+      if (mode === "evaluation" && evaluationKey) {
+          console.log("🛑 Uploading video...");
+          await stopAndUploadVideo(evaluationKey);
+      }
+
+      // 3. Save Transcript to DB
+      if (mode === "evaluation" && evaluationKey) {
+         console.log("🛑 Saving transcript...");
+         try {
+           await fetch(`${BACKEND_URL}/api/submit_interview`, {
+              method: "POST",
+              headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({ key: evaluationKey, history: messages })
+           });
+         } catch (e) {
+           console.error("Failed to save interview data", e);
+         }
+      }
+
+      // 4. Cleanup & Notify Parent
+      intentionalExitRef.current = true;
+      cleanupTts();
+      // cleanupStt() is handled below in its hook or via simple unmount
+      
+      setIsFinishing(false);
+      setIsLoading(false);
+      onEnd(); // Tell parent component to switch views
+  }, [mode, evaluationKey, messages, stopSpeaking, stopAndUploadVideo, cleanupTts, onEnd, isFinishing]);
+
+
+  // --- TIMER EFFECT ---
+  useEffect(() => {
+    if (mode !== "evaluation" || timeLeft === null) return;
+
+    if (timeLeft <= 0) {
+        // TIME IS UP -> FORCE END
+        forceEndSession();
+        return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [mode, timeLeft, forceEndSession]);
+
+
+  // --- AI LOGIC ---
   const sendToAI = useCallback(
     async (currentHistory: Message[]) => {
-      // Calculate mins left for AI context
       const minsLeft = timeLeft ? timeLeft / 60 : null;
-
       const requestBody = {
         history: currentHistory,
         mode,
@@ -102,31 +154,17 @@ export function useInterviewLogic({
       try {
         const response = await fetch(`${BACKEND_URL}/api/chat`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
         });
-
-        if (!response.ok) throw new Error(`Server error ${response.status}`);
-
         const data = await response.json();
-
-        if (!data.reply) {
-          setMessages((prev) => [...prev, { speaker: "alex", text: "(No response)" }]);
-        } else {
-          const alexReplyText = data.reply.trim();
-          setMessages((prev) => [...prev, { speaker: "alex", text: alexReplyText }]);
-          speak(alexReplyText);
-          
-          // If time is up and Alex says "good bye", we could trigger auto-finish, 
-          // but letting user click 'X' is safer for UX.
+        if (data.reply) {
+          const alexReply = data.reply.trim();
+          setMessages((prev) => [...prev, { speaker: "alex", text: alexReply }]);
+          speak(alexReply);
         }
       } catch (error: any) {
-        console.error("Error:", error);
         setErrorState(error.message);
-        setIsLoading(false);
       } finally {
         setIsLoading(false);
       }
@@ -134,72 +172,78 @@ export function useInterviewLogic({
     [mode, role, skills, resumeText, userName, speak, timeLeft]
   );
 
+  // --- STT HOOK ---
   const {
-    startRecording,
-    stopRecording,
-    isRecording,
+    startRecording: startStt,
+    stopRecording: stopStt,
+    isRecording: isSttRecording,
     isTranscribing,
     cleanup: cleanupStt,
   } = useSpeechToText({
     onTranscript: (transcript) => {
-      if (!transcript.trim()) {
-        setIsLoading(false);
-        return;
-      }
+      if (!transcript.trim()) { setIsLoading(false); return; }
       setIsLoading(true);
-      setErrorState(null);
-      const newUserMessage: Message = { speaker: "user", text: transcript.trim() };
-      const updatedHistory = [...messages, newUserMessage];
-      setMessages(updatedHistory);
-      sendToAI(updatedHistory);
+      const newMsg: Message = { speaker: "user", text: transcript.trim() };
+      const history = [...messages, newMsg];
+      setMessages(history);
+      sendToAI(history);
     },
-    onError: (error) => {
-      if (error) setErrorState(error);
-      setIsLoading(false);
+    onError: (err) => {
+       if (err) setErrorState(err);
+       setIsLoading(false);
     },
   });
 
-  // --- DB SUBMIT ---
-  const finishEvaluation = useCallback(async () => {
-    if (mode === "evaluation" && evaluationKey) {
-       try {
-         await fetch(`${BACKEND_URL}/api/submit_interview`, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ key: evaluationKey, history: messages })
-         });
-       } catch (e) {
-         console.error("Failed to save interview", e);
-       }
-    }
-    intentionalExitRef.current = true;
-    cleanupTts();
-    cleanupStt();
-    onEnd();
-  }, [mode, evaluationKey, messages, cleanupTts, cleanupStt, onEnd]);
-
-  // Handlers
+  // Wrapper for Start Recording to handle Lazy Audio Init
   const handleStartRecording = () => {
     stopSpeaking();
-    startRecording();
-  };
-  
-  const handleStopRecording = () => stopRecording();
+    
+    // LAZY INIT: Initialize AudioContext here, on first user interaction
+    if (!audioInitDone.current) {
+        initAudioSystem();
+        audioInitDone.current = true;
+    }
 
+    startStt();
+  };
+
+  // --- LIFECYCLE START ---
+  useEffect(() => {
+    if (effectRan.current === false) {
+      effectRan.current = true;
+      document.addEventListener("fullscreenchange", handleFullscreenChange);
+      
+      // 1. Start Video Immediately (Browser will prompt for Camera)
+      if (mode === "evaluation") {
+         startVideoRecording();
+      }
+      
+      // 2. Start AI (Chat only, no AudioContext yet)
+      sendToAI([]); 
+    }
+    return () => {
+        document.removeEventListener("fullscreenchange", handleFullscreenChange);
+        cleanupTts();
+        cleanupStt();
+        // Note: We don't stop video here because forceEndSession handles logic.
+        // The video hook cleanup handles unmount safety.
+    };
+  }, []); 
+
+  // --- HANDLERS ---
   const handleFullscreenChange = useCallback(() => {
     if (!document.fullscreenElement && !intentionalExitRef.current) {
       stopSpeaking();
-      stopRecording();
+      stopStt();
       setShowExitModal(true);
     }
     if (intentionalExitRef.current) intentionalExitRef.current = false;
-  }, [stopSpeaking, stopRecording]);
+  }, [stopSpeaking, stopStt]);
 
   const handleConfirmExit = useCallback(() => {
     setShowExitModal(false);
-    // If Evaluation, save data
-    finishEvaluation(); 
-  }, [finishEvaluation]);
+    forceEndSession(); // Use Master End
+  }, [forceEndSession]);
 
   const handleCancelExit = useCallback(() => {
     setShowExitModal(false);
@@ -208,58 +252,38 @@ export function useInterviewLogic({
 
   const handleRequestExit = useCallback(() => {
     stopSpeaking();
-    stopRecording();
+    stopStt();
     setShowExitModal(true);
-  }, [stopSpeaking, stopRecording]);
+  }, [stopSpeaking, stopStt]);
 
-  useEffect(() => {
-    if (effectRan.current === false) {
-      effectRan.current = true;
-      document.addEventListener("fullscreenchange", handleFullscreenChange);
-      initAudioSystem();
-      sendToAI([]); 
-    }
-    return () => {
-      if (effectRan.current) {
-        document.removeEventListener("fullscreenchange", handleFullscreenChange);
-        cleanupTts();
-        cleanupStt();
-        effectRan.current = false;
-      }
-    };
-  }, []); 
-
+  // Status Text
   const getStatusText = () => {
+    if (isFinishing || isVideoUploading) return "Saving interview data... Please wait.";
     if (showExitModal) return "Paused. Please make a selection.";
-    if (timeLeft === 0) return "Time is up. Wrap up your answer.";
-    if (isRecording) return "Listening... Speak now.";
+    if (timeLeft === 0) return "Time is up. Finishing...";
+    if (isSttRecording) return "Listening... Speak now.";
     if (isTranscribing) return "Processing your response...";
     if (isLoading) return "Alex is thinking...";
     if (isSpeaking) return "Alex is speaking...";
-    if (errorState) return `Error: ${errorState}`;
     return "It's your turn. Press the mic to speak.";
   };
 
-  useEffect(() => {
-    if (ttsError) setErrorState(`TTS Error: ${ttsError}`);
-  }, [ttsError]);
-
   return {
     state: {
-      isLoading,
+      isLoading: isLoading || isFinishing || isVideoUploading, // Block UI during finish
       isSpeaking,
-      isRecording,
+      isRecording: isSttRecording,
       isTranscribing,
       errorState,
       messages,
       amplitude,
       showExitModal,
-      timeLeft, // Export timeLeft
+      timeLeft,
     },
     refs: { mainContainerRef },
     handlers: {
       startRecording: handleStartRecording,
-      stopRecording: handleStopRecording,
+      stopRecording: stopStt,
       handleConfirmExit,
       handleCancelExit,
       handleRequestExit,
