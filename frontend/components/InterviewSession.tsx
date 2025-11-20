@@ -1,33 +1,31 @@
-// components/InterviewSession.tsx
 "use client";
 
 import AudioVisualizer from "../components/ui/AudioVisualizer";
 import { Button } from "../components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { Terminal, Mic, Square, X } from "lucide-react";
+import { Terminal, Mic, Square, X, Captions, CaptionsOff, Clock } from "lucide-react";
 import { useInterviewLogic } from "../app/hooks/useInterviewLogic";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import ExitFullscreenDialog from "../components/ExitFullscreenDialog";
 
-// Type Definition
 interface InterviewSessionProps {
-  mode: "resume" | "position";
+  mode: "resume" | "position" | "evaluation";
   userName: string;
   role?: string;
   skills?: string;
   resumeText?: string;
+  evaluationKey?: string;
+  durationMinutes?: number;
   onEnd: () => void;
 }
 
-// Component
 export default function InterviewSession(props: InterviewSessionProps) {
-  // --- Create ref for the audio element ---
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const [showCaptions, setShowCaptions] = useState(false);
 
-  // Pass the ref and props (including onEnd) to the logic hook
   const { state, refs, handlers, computed } = useInterviewLogic({
     ...props,
-    audioElementRef: audioPlayerRef, // Pass the ref
+    audioElementRef: audioPlayerRef,
   });
 
   const {
@@ -38,17 +36,17 @@ export default function InterviewSession(props: InterviewSessionProps) {
     errorState,
     amplitude,
     showExitModal,
+    messages,
+    timeLeft
   } = state;
 
-  const { mainContainerRef } = refs; // Get main ref from hook
+  const { mainContainerRef } = refs;
   const {
     startRecording: handleStartRecording,
     stopRecording: handleStopRecording,
-    // --- `goBack` is no longer used by the 'X' button ---
-    // goBack, 
     handleConfirmExit,
     handleCancelExit,
-    handleRequestExit, // --- ✅ 1. GET THE NEW HANDLER ---
+    handleRequestExit,
   } = handlers;
   const { statusText } = computed;
 
@@ -57,94 +55,112 @@ export default function InterviewSession(props: InterviewSessionProps) {
   const visualizerVariant = isSpeaking ? "Alex" : "user";
   const visualizerAmplitude = isSpeaking ? amplitude : 0;
 
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const activeCaptionText = lastMessage?.speaker === "alex" ? lastMessage.text : null;
+
+  // Format Timer
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div
       ref={mainContainerRef}
       className="fixed inset-0 z-50 h-screen w-screen bg-gray-900 text-white flex flex-col overflow-hidden"
     >
-      {/* --- Hidden audio player --- */}
       <audio ref={audioPlayerRef} crossOrigin="anonymous" className="hidden" />
 
-      {/* Header */}
-      <header className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10">
+      <header className="flex-none p-6 flex justify-between items-center z-20">
         <div className="text-left">
-          <h2 className="text-lg font-semibold">{props.userName}</h2>
-          <p className="text-sm text-gray-400">{props.role}</p>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleRequestExit} // --- ✅ 2. ATTACH THE NEW HANDLER HERE ---
-          disabled={isRecording || isTranscribing || showExitModal}
-          aria-label="Leave interview"
-          className="text-gray-300 hover:bg-gray-700 hover:text-white"
-        >
-          <X className="h-5 w-5" />
-        </Button>
-      </header>
-
-      {/* --- MAIN CONTENT (unchanged) --- */}
-      <main className="flex-grow flex flex-col items-center justify-center text-center p-6 space-y-8">
-        {/* 1. Visualizer */}
-        <AudioVisualizer
-          isActive={isVisualizerActive}
-          variant={visualizerVariant}
-          amplitude={visualizerAmplitude}
-        />
-        
-        {/* 2. Status Text */}
-        <div className="h-20 flex items-center justify-center">
-          <p
-            className={`text-lg text-gray-300 transition-opacity duration-300 ${
-              (isLoading || isTranscribing) && !showExitModal
-                ? "animate-pulse"
-                : ""
-            }`}
-          >
-            {statusText}
+          <h2 className="text-xl font-bold tracking-tight">{props.userName}</h2>
+          <p className="text-sm text-blue-400 font-medium uppercase tracking-wider">
+            {props.role || "Interview"}
           </p>
         </div>
 
-        {/* 3. Error (if any) */}
-        {errorState && (
-          <Alert
-            variant="destructive"
-            className="max-w-md bg-red-900 border-red-700 text-red-100"
+        <div className="flex items-center gap-4">
+          {/* TIMER DISPLAY */}
+          {props.mode === "evaluation" && timeLeft !== null && (
+            <div className={`flex items-center gap-2 font-mono text-xl font-bold px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 ${timeLeft < 60 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+               <Clock className="h-5 w-5"/>
+               {formatTime(timeLeft)}
+            </div>
+          )}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowCaptions(!showCaptions)}
+            className={`rounded-full transition-all duration-200 ${
+              showCaptions ? "bg-white/10 text-blue-400" : "text-gray-400"
+            }`}
           >
-            <Terminal className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{errorState}</AlertDescription>
-          </Alert>
+            {showCaptions ? <Captions className="h-5 w-5" /> : <CaptionsOff className="h-5 w-5" />}
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRequestExit}
+            disabled={isRecording || isTranscribing || showExitModal}
+            className="rounded-full text-gray-400 hover:bg-red-900/30 hover:text-red-400 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+      </header>
+
+      <main className="flex-grow flex flex-col items-center justify-center w-full max-w-5xl mx-auto px-4 relative">
+        {errorState && (
+          <div className="absolute top-0 left-0 right-0 flex justify-center z-30 p-4">
+            <Alert variant="destructive" className="max-w-md bg-red-950/90 border-red-800 text-red-100 backdrop-blur-md">
+              <Terminal className="h-4 w-4" />
+              <AlertTitle>System Error</AlertTitle>
+              <AlertDescription>{errorState}</AlertDescription>
+            </Alert>
+          </div>
         )}
+
+        <div className="flex-1 flex items-center justify-center w-full min-h-[250px]">
+          <AudioVisualizer
+            isActive={isVisualizerActive}
+            variant={visualizerVariant}
+            amplitude={visualizerAmplitude}
+          />
+        </div>
+
+        <div className="flex-none w-full flex flex-col items-center gap-6 pb-4">
+          <div className="w-full flex justify-center min-h-[100px]">
+            {showCaptions && activeCaptionText && (
+              <div className="max-w-3xl w-full bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <p className="text-lg md:text-xl text-center text-gray-50 leading-relaxed font-medium">
+                  "{activeCaptionText}"
+                </p>
+              </div>
+            )}
+          </div>
+
+          <p className={`text-sm font-medium uppercase tracking-widest ${(isLoading || isTranscribing) && !showExitModal ? "text-blue-400 animate-pulse" : "text-gray-500"}`}>
+            {statusText}
+          </p>
+        </div>
       </main>
-      {/* --- END OF MAIN --- */}
 
-
-      {/* --- FOOTER (unchanged) --- */}
-      <footer className="w-full flex items-center justify-center p-6">
+      <footer className="flex-none p-8 flex items-center justify-center z-20">
         <Button
           variant={isRecording ? "destructive" : "secondary"}
           size="lg"
-          className="h-16 w-16 rounded-full"
+          className={`h-20 w-20 rounded-full border-4 transition-all duration-300 ease-out ${isRecording ? "border-red-900 bg-red-600 scale-110" : "border-gray-700 bg-white hover:scale-105"}`}
           onClick={isRecording ? handleStopRecording : handleStartRecording}
           disabled={isMicDisabled}
-          aria-label={isRecording ? "Stop recording" : "Start recording"}
         >
-          {isRecording ? (
-            <Square className="h-6 w-6" />
-          ) : (
-            <Mic className="h-6 w-6" />
-          )}
+          {isRecording ? <Square className="h-8 w-8 fill-current text-white" /> : <Mic className="h-8 w-8 text-gray-900" />}
         </Button>
       </footer>
-      {/* --- END OF FOOTER --- */}
 
-      {/* --- (Dialog is unchanged) --- */}
-      <ExitFullscreenDialog
-        open={showExitModal}
-        onConfirm={handleConfirmExit}
-        onCancel={handleCancelExit}
-      />
+      <ExitFullscreenDialog open={showExitModal} onConfirm={handleConfirmExit} onCancel={handleCancelExit} />
     </div>
   );
 }
